@@ -16,8 +16,8 @@ gulp.task "publish", ['default'], ->
         dependencies: {}
 
     exec("git checkout gh-pages")
-    cp "-r", "static/*", "."
-    JSON.Stringify(bower_json).to("bower.json")
+    cp "-rf", "static/*", "."
+    JSON.stringify(bower_json).to("bower.json")
     exec("git add .")
     exec("git commit -m " + bower_json.version)
     exec("git tag " + bower_json.version)
