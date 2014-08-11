@@ -2281,5 +2281,3 @@ if(window.jasmine || window.mocha) {
   });
 
 }).call(this);
-
-//# sourceMappingURL=tests.js.map
