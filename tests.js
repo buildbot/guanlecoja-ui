@@ -2202,13 +2202,26 @@ if(window.jasmine || window.mocha) {
         }
       }
       groups.push(group);
-      glMenuServiceProvider.group({
+      glMenuServiceProvider.addGroup({
         name: group.name,
         caption: _.string.humanize(group.name),
         icon: group.name,
         order: group.name.length
       });
     }
+    glMenuServiceProvider.setFooter([
+      {
+        caption: "Github",
+        href: "https://github.com/tardyp/guanlecoja-ui"
+      }, {
+        caption: "Help",
+        href: "https://github.com/tardyp/guanlecoja-ui/blob/master/Readme.md"
+      }, {
+        caption: "About",
+        href: "https://github.com/tardyp/guanlecoja-ui/blob/master/Readme.md"
+      }
+    ]);
+    glMenuServiceProvider.setAppTitle("Guanlecoja-UI");
     _results = [];
     for (_k = 0, _len2 = groups.length; _k < _len2; _k++) {
       group = groups[_k];
@@ -2220,7 +2233,7 @@ if(window.jasmine || window.mocha) {
           item = _ref2[_l];
           state = {
             controller: "dummyController",
-            template: "<h1>{{stateName}}</h1>",
+            template: "<div class='container'><div class='row'><h1>{{stateName}}</h1></div></div>",
             name: item.name,
             url: '/' + item.name,
             data: {
@@ -2236,8 +2249,16 @@ if(window.jasmine || window.mocha) {
     return _results;
   });
 
-  m.controller("dummyController", function($scope, $state) {
-    return $scope.stateName = $state.current.name;
+  m.controller("dummyController", function($scope, $state, $rootScope) {
+    $scope.stateName = $state.current.name;
+    return $rootScope.$broadcast("breadcrumb", [
+      {
+        caption: _.string.humanize($state.current.data.group)
+      }, {
+        caption: _.string.humanize($state.current.name),
+        sref: $state.current.name
+      }
+    ]);
   });
 
 }).call(this);

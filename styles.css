@@ -5782,8 +5782,8 @@ button.close {
  * -------------------------- */
 @font-face {
   font-family: 'FontAwesome';
-  src: url('../fonts/fontawesome-webfont.eot?v=4.1.0');
-  src: url('../fonts/fontawesome-webfont.eot?#iefix&v=4.1.0') format('embedded-opentype'), url('../fonts/fontawesome-webfont.woff?v=4.1.0') format('woff'), url('../fonts/fontawesome-webfont.ttf?v=4.1.0') format('truetype'), url('../fonts/fontawesome-webfont.svg?v=4.1.0#fontawesomeregular') format('svg');
+  src: url('./fonts/fontawesome-webfont.eot?v=4.1.0');
+  src: url('./fonts/fontawesome-webfont.eot?#iefix&v=4.1.0') format('embedded-opentype'), url('./fonts/fontawesome-webfont.woff?v=4.1.0') format('woff'), url('./fonts/fontawesome-webfont.ttf?v=4.1.0') format('truetype'), url('./fonts/fontawesome-webfont.svg?v=4.1.0#fontawesomeregular') format('svg');
   font-weight: normal;
   font-style: normal;
 }
@@ -7368,6 +7368,11 @@ body {
   /* footer */
   /* content */
 }
+@media (max-width: 600px) {
+  .gl-page-with-sidebar {
+    padding-left: 30px;
+  }
+}
 .gl-page-with-sidebar .sidebar.sidebar-blue {
   background: #30426a;
 }
@@ -7382,6 +7387,9 @@ body {
 .gl-page-with-sidebar.active {
   transform: translate(180px, 0px);
   -webkit-transform: translate(180px, 0px);
+}
+.gl-page-with-sidebar.active .sidebar ul {
+  overflow-y: auto;
 }
 .gl-page-with-sidebar:not(.active) .sidebar.blue ul.sidebar .sidebar-title.separator {
   background: #273759;
@@ -7411,6 +7419,11 @@ body {
   position: fixed;
   height: 100%;
 }
+@media (max-width: 600px) {
+  .gl-page-with-sidebar .sidebar {
+    width: 210px;
+  }
+}
 .gl-page-with-sidebar .sidebar ul {
   position: absolute;
   top: 0;
@@ -7420,7 +7433,7 @@ body {
   list-style: none;
   text-indent: 20px;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 .gl-page-with-sidebar .sidebar ul li a {
   color: #fff;
@@ -7429,18 +7442,28 @@ body {
   text-decoration: none;
   width: 250px;
 }
+@media (max-width: 600px) {
+  .gl-page-with-sidebar .sidebar ul li a {
+    width: 210px;
+  }
+}
 .gl-page-with-sidebar .sidebar ul li.sidebar-main {
-  height: 65px;
+  height: 51px;
 }
 .gl-page-with-sidebar .sidebar ul li.sidebar-main a {
   font-size: 18px;
-  line-height: 60px;
+  line-height: 50px;
 }
 .gl-page-with-sidebar .sidebar ul li.sidebar-main .menu-icon {
   float: right;
   font-size: 18px;
   padding-right: 28px;
-  line-height: 60px;
+  line-height: 50px;
+}
+@media (max-width: 600px) {
+  .gl-page-with-sidebar .sidebar ul li.sidebar-main .menu-icon {
+    padding-right: 8px;
+  }
 }
 .gl-page-with-sidebar .sidebar ul li.sidebar-title {
   font-size: 12px;
@@ -7471,6 +7494,11 @@ body {
   line-height: 40px;
   width: 70px;
 }
+@media (max-width: 600px) {
+  .gl-page-with-sidebar .sidebar ul li.sidebar-list .menu-icon {
+    width: 50px;
+  }
+}
 .gl-page-with-sidebar .sidebar ul li.sidebar-list a:hover .menu-icon {
   text-indent: 25px;
 }
@@ -7488,7 +7516,7 @@ body {
   line-height: 0px;
   color: rgba(255, 0, 0, 0);
 }
-.gl-page-with-sidebar .footer {
+.gl-page-with-sidebar .sidebar-footer {
   position: absolute;
   height: 40px;
   bottom: 0;
@@ -7497,18 +7525,18 @@ body {
   margin: 0;
   text-align: center;
 }
-.gl-page-with-sidebar .footer div a {
+.gl-page-with-sidebar .sidebar-footer div a {
   color: #b2bfdc;
   font-size: 12px;
   line-height: 43px;
 }
-.gl-page-with-sidebar .footer div a:hover {
+.gl-page-with-sidebar .sidebar-footer div a:hover {
   color: #ffffff;
   text-decoration: none;
 }
 .gl-page-with-sidebar .content {
-  padding-left: 0;
-  margin-left: 0;
+  padding-left: 0px;
+  margin-left: 0px;
   width: 100%;
   height: auto;
 }
@@ -7595,6 +7623,30 @@ body {
   }
   50% {
     transform: rotate(0deg);
+  }
+}
+.navbar {
+  max-height: 50px;
+}
+.navbar-nav > li {
+  float: left;
+}
+.navbar .breadcrumb {
+  margin-top: 6px;
+  font-size: 16px;
+  display: inline-block;
+}
+.navbar .navbar-brand {
+  padding-top: 14px;
+  font-size: 21px;
+}
+@media (max-width: 600px) {
+  .navbar .navbar-brand {
+    display: none;
+  }
+  .navbar .breadcrumb {
+    font-size: 14px;
+    padding-left: 0px;
   }
 }
 .avatar {

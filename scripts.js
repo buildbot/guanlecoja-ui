@@ -47617,11 +47617,15 @@ angular.module('RecursionHelper', []).factory('RecursionHelper', ['$compile', fu
   var GlMenu;
 
   GlMenu = (function() {
-    function GlMenu() {
-      this.groups = {};
-    }
+    function GlMenu() {}
 
-    GlMenu.prototype.group = function(group) {
+    GlMenu.prototype.groups = {};
+
+    GlMenu.prototype.footer = [];
+
+    GlMenu.prototype.appTitle = "set AppTitle using GlMenuServiceProvider.setAppTitle";
+
+    GlMenu.prototype.addGroup = function(group) {
       group.items = [];
       if (group.order == null) {
         group.order = 99;
@@ -47630,8 +47634,16 @@ angular.module('RecursionHelper', []).factory('RecursionHelper', ['$compile', fu
       return this.groups;
     };
 
+    GlMenu.prototype.setFooter = function(footer) {
+      return this._footer = footer;
+    };
+
+    GlMenu.prototype.setAppTitle = function(title) {
+      return this.appTitle = title;
+    };
+
     GlMenu.prototype.$get = function($state) {
-      var group, groups, item, name, state, _i, _len, _ref, _ref1;
+      var group, groups, item, name, self, state, _i, _len, _ref, _ref1;
       _ref = $state.get().slice(1);
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         state = _ref[_i];
@@ -47665,10 +47677,16 @@ angular.module('RecursionHelper', []).factory('RecursionHelper', ['$compile', fu
       groups.sort(function(a, b) {
         return a.order - b.order;
       });
-      console.log(groups);
+      self = this;
       return {
         getGroups: function() {
           return groups;
+        },
+        getFooter: function() {
+          return self.footer;
+        },
+        getAppTitle: function() {
+          return self.appTitle;
         }
       };
     };
@@ -47706,6 +47724,8 @@ angular.module('RecursionHelper', []).factory('RecursionHelper', ['$compile', fu
       this.$scope = $scope;
       this.$timeout = $timeout;
       this.$scope.groups = glMenuService.getGroups();
+      this.$scope.footer = glMenuService.getFooter();
+      this.$scope.appTitle = glMenuService.getAppTitle();
     }
 
     _glPageWithSidebar.prototype.toggleGroup = function(group) {
@@ -47766,18 +47786,21 @@ angular.module('RecursionHelper', []).factory('RecursionHelper', ['$compile', fu
   })();
 
   _glTopbar = (function() {
-    function _glTopbar($scope) {
-      null;
+    function _glTopbar($scope, glMenuService) {
+      $scope.appTitle = glMenuService.getAppTitle();
+      $scope.$on("breadcrumb", function(e, data) {
+        return $scope.breadcrumb = data;
+      });
     }
 
     return _glTopbar;
 
   })();
 
-  angular.module('guanlecoja.ui').directive('glTopbar', [GlTopbar]).controller('_glTopbarController', ['$scope', _glTopbar]);
+  angular.module('guanlecoja.ui').directive('glTopbar', [GlTopbar]).controller('_glTopbarController', ['$scope', 'glMenuService', _glTopbar]);
 
 }).call(this);
 
-angular.module("guanlecoja.ui").run(["$templateCache", function($templateCache) {$templateCache.put("guanlecoja.ui/views/page_with_sidebar.html","<div ng-class=\"{\'active\': page.sidebarActive}\" class=\"gl-page-with-sidebar\"><div ng-mouseenter=\"page.enterSidebar()\" ng-mouseleave=\"page.leaveSidebar()\" class=\"sidebar sidebar-blue\"><ul><li class=\"sidebar-main\"><a href=\"#\" ng-click=\"page.sidebarActive=!page.sidebarActive\">Dashboard<span class=\"menu-icon fa fa-bars\"></span></a></li><li class=\"sidebar-title\"><span>NAVIGATION</span></li><div ng-repeat=\"group in groups\"><div ng-if=\"group.items.length &gt; 0\"><li class=\"sidebar-list\"><a ng-click=\"page.toggleGroup(group)\"><i class=\"fa fa-angle-right\"></i>&nbsp;{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li><li ng-class=\"{\'active\': page.activeGroup==group}\" ng-repeat=\"item in group.items\" class=\"sidebar-list subitem\"><a ui-sref=\"{{item.sref}}\">{{item.caption}}</a></li></div><div ng-if=\"group.items.length == 0\"><li class=\"sidebar-list\"><a ui-sref=\"{{group.sref}}\" ng-click=\"page.toggleGroup(group)\">{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li></div></div></ul><div class=\"sidebar-footer\"><div ng-repeat=\"item in footer\" class=\"col-xs-4\"><a ng-href=\"item.href\">{{item.caption}}</a></div></div></div><div class=\"content\"><div ng-transclude=\"ng-transclude\"></div></div></div>");
-$templateCache.put("guanlecoja.ui/views/topbar.html","<div class=\"navbar navbar-default navbar-static-top\"><div class=\"container-fluid\"><ul class=\"nav navbar-nav navbar-right\"><li class=\"dropdown\"><a href=\"#\" class=\"dropdown-toggle\"><i class=\"fa fa-bell-o fa-lg fa-ringing\"></i></a><ul class=\"dropdown-menu dropdown-menu-right\"><li class=\"dropdown-header\">Notifications</li><li class=\"divider\"></li><li><a href=\"#\">Server Down!</a></li></ul></li><li class=\"dropdown\"><a href=\"#\" class=\"dropdown-toggle\"><img src=\"img/avatar.jpg\" class=\"avatar\"/></a><ul class=\"dropdown-menu dropdown-menu-right\"><li class=\"dropdown-header\">Joe Bloggs</li><li class=\"divider\"></li><li class=\"link\"><a href=\"#\">Profile</a></li><li class=\"link\"><a href=\"#\">Menu Item</a></li><li class=\"link\"><a href=\"#\">Menu Item</a></li><li class=\"divider\"></li><li class=\"link\"><a href=\"#\">Logout</a></li></ul></li></ul></div></div>");}]);
+angular.module("guanlecoja.ui").run(["$templateCache", function($templateCache) {$templateCache.put("guanlecoja.ui/views/topbar.html","<div class=\"navbar navbar-default navbar-static-top\"><div class=\"container-fluid\"><a class=\"navbar-brand\">{{appTitle}}</a><ol class=\"breadcrumb\"><li ng-repeat=\"b in breadcrumb\"><a ng-if=\"b.sref\" iu-sref=\"{{b.sref}}\">{{b.caption}}</a><a ng-if=\"b.href\" ng-href=\"{{b.href}}\">{{b.caption}}</a><span ng-if=\"b.href == undefined &amp;&amp; b.sref == undefined\" ng-href=\"{{b.href}}\">{{b.caption}}</span></li></ol><ul class=\"nav navbar-nav pull-right\"><li class=\"dropdown\"><a href=\"#\" class=\"dropdown-toggle\"><i class=\"fa fa-bell-o fa-lg fa-ringing\"></i></a><ul class=\"dropdown-menu dropdown-menu-right\"><li class=\"dropdown-header\">Notifications</li><li class=\"divider\"></li><li><a href=\"#\">Server Down!</a></li></ul></li><li class=\"dropdown\"><a href=\"#\" class=\"dropdown-toggle\"><img src=\"img/avatar.jpg\" class=\"avatar\"/></a><ul class=\"dropdown-menu dropdown-menu-right\"><li class=\"dropdown-header\">Joe Bloggs</li><li class=\"divider\"></li><li class=\"link\"><a href=\"#\">Profile</a></li><li class=\"link\"><a href=\"#\">Menu Item</a></li><li class=\"link\"><a href=\"#\">Menu Item</a></li><li class=\"divider\"></li><li class=\"link\"><a href=\"#\">Logout</a></li></ul></li></ul></div></div>");
+$templateCache.put("guanlecoja.ui/views/page_with_sidebar.html","<div ng-class=\"{\'active\': page.sidebarActive}\" class=\"gl-page-with-sidebar\"><div ng-mouseenter=\"page.enterSidebar()\" ng-mouseleave=\"page.leaveSidebar()\" class=\"sidebar sidebar-blue\"><ul><li class=\"sidebar-main\"><a href=\"#\" ng-click=\"page.sidebarActive=!page.sidebarActive\">{{appTitle}}<span class=\"menu-icon fa fa-bars\"></span></a></li><li class=\"sidebar-title\"><span>NAVIGATION</span></li><div ng-repeat=\"group in groups\"><div ng-if=\"group.items.length &gt; 0\"><li class=\"sidebar-list\"><a ng-click=\"page.toggleGroup(group)\"><i class=\"fa fa-angle-right\"></i>&nbsp;{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li><li ng-class=\"{\'active\': page.activeGroup==group}\" ng-repeat=\"item in group.items\" class=\"sidebar-list subitem\"><a ui-sref=\"{{item.sref}}\">{{item.caption}}</a></li></div><div ng-if=\"group.items.length == 0\"><li class=\"sidebar-list\"><a ui-sref=\"{{group.sref}}\" ng-click=\"page.toggleGroup(group)\">{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li></div></div></ul><div class=\"sidebar-footer\"><div ng-repeat=\"item in footer\" class=\"col-xs-4\"><a ng-href=\"{{item.href}}\">{{item.caption}}</a></div></div></div><div class=\"content\"><div ng-transclude=\"ng-transclude\"></div></div></div>");}]);
 //# sourceMappingURL=scripts.js.map
