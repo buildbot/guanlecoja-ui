@@ -47614,92 +47614,6 @@ angular.module('RecursionHelper', []).factory('RecursionHelper', ['$compile', fu
 }).call(this);
 
 (function() {
-  var GlMenu;
-
-  GlMenu = (function() {
-    function GlMenu() {}
-
-    GlMenu.prototype.groups = {};
-
-    GlMenu.prototype.footer = [];
-
-    GlMenu.prototype.appTitle = "set AppTitle using GlMenuServiceProvider.setAppTitle";
-
-    GlMenu.prototype.addGroup = function(group) {
-      group.items = [];
-      if (group.order == null) {
-        group.order = 99;
-      }
-      this.groups[group.name] = group;
-      return this.groups;
-    };
-
-    GlMenu.prototype.setFooter = function(footer) {
-      return this._footer = footer;
-    };
-
-    GlMenu.prototype.setAppTitle = function(title) {
-      return this.appTitle = title;
-    };
-
-    GlMenu.prototype.$get = function($state) {
-      var group, groups, item, name, self, state, _i, _len, _ref, _ref1;
-      _ref = $state.get().slice(1);
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        state = _ref[_i];
-        group = state.data.group;
-        if (group == null) {
-          continue;
-        }
-        if (!this.groups.hasOwnProperty(group)) {
-          throw Error("group " + group + " has not been defined with glMenuProvider.group(). has: " + (_.keys(this.groups)));
-        }
-        this.groups[group].items.push({
-          caption: state.data.caption || _.string.humanize(state.name),
-          sref: state.name
-        });
-      }
-      _ref1 = this.groups;
-      for (name in _ref1) {
-        group = _ref1[name];
-        if (group.items.length === 0) {
-          delete groups[name];
-        } else if (group.items.length === 1) {
-          item = group.items[0];
-          group.caption = item.caption;
-          group.sref = item.sref;
-          group.items = [];
-        } else {
-          group.sref = ".";
-        }
-      }
-      groups = _.values(this.groups);
-      groups.sort(function(a, b) {
-        return a.order - b.order;
-      });
-      self = this;
-      return {
-        getGroups: function() {
-          return groups;
-        },
-        getFooter: function() {
-          return self.footer;
-        },
-        getAppTitle: function() {
-          return self.appTitle;
-        }
-      };
-    };
-
-    return GlMenu;
-
-  })();
-
-  angular.module('guanlecoja.ui').provider('glMenuService', [GlMenu]);
-
-}).call(this);
-
-(function() {
   var GlPageWithSidebar, _glPageWithSidebar;
 
   GlPageWithSidebar = (function() {
@@ -47798,6 +47712,92 @@ angular.module('RecursionHelper', []).factory('RecursionHelper', ['$compile', fu
   })();
 
   angular.module('guanlecoja.ui').directive('glTopbar', [GlTopbar]).controller('_glTopbarController', ['$scope', 'glMenuService', _glTopbar]);
+
+}).call(this);
+
+(function() {
+  var GlMenu;
+
+  GlMenu = (function() {
+    function GlMenu() {}
+
+    GlMenu.prototype.groups = {};
+
+    GlMenu.prototype.footer = [];
+
+    GlMenu.prototype.appTitle = "set AppTitle using GlMenuServiceProvider.setAppTitle";
+
+    GlMenu.prototype.addGroup = function(group) {
+      group.items = [];
+      if (group.order == null) {
+        group.order = 99;
+      }
+      this.groups[group.name] = group;
+      return this.groups;
+    };
+
+    GlMenu.prototype.setFooter = function(footer) {
+      return this._footer = footer;
+    };
+
+    GlMenu.prototype.setAppTitle = function(title) {
+      return this.appTitle = title;
+    };
+
+    GlMenu.prototype.$get = function($state) {
+      var group, groups, item, name, self, state, _i, _len, _ref, _ref1;
+      _ref = $state.get().slice(1);
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        state = _ref[_i];
+        group = state.data.group;
+        if (group == null) {
+          continue;
+        }
+        if (!this.groups.hasOwnProperty(group)) {
+          throw Error("group " + group + " has not been defined with glMenuProvider.group(). has: " + (_.keys(this.groups)));
+        }
+        this.groups[group].items.push({
+          caption: state.data.caption || _.string.humanize(state.name),
+          sref: state.name
+        });
+      }
+      _ref1 = this.groups;
+      for (name in _ref1) {
+        group = _ref1[name];
+        if (group.items.length === 0) {
+          delete groups[name];
+        } else if (group.items.length === 1) {
+          item = group.items[0];
+          group.caption = item.caption;
+          group.sref = item.sref;
+          group.items = [];
+        } else {
+          group.sref = ".";
+        }
+      }
+      groups = _.values(this.groups);
+      groups.sort(function(a, b) {
+        return a.order - b.order;
+      });
+      self = this;
+      return {
+        getGroups: function() {
+          return groups;
+        },
+        getFooter: function() {
+          return self.footer;
+        },
+        getAppTitle: function() {
+          return self.appTitle;
+        }
+      };
+    };
+
+    return GlMenu;
+
+  })();
+
+  angular.module('guanlecoja.ui').provider('glMenuService', [GlMenu]);
 
 }).call(this);
 
