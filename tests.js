@@ -2249,9 +2249,14 @@ if(window.jasmine || window.mocha) {
     return _results;
   });
 
-  m.controller("dummyController", function($scope, $state, $rootScope) {
+  m.controller("dummyController", function($scope, $state, glBreadcrumbService, glNotificationService) {
     $scope.stateName = $state.current.name;
-    return $rootScope.$broadcast("breadcrumb", [
+    glNotificationService.notify({
+      msg: "You just transitioned to " + $scope.stateName + "!",
+      title: "State transitions",
+      group: "state"
+    });
+    return glBreadcrumbService.setBreadcrumb([
       {
         caption: _.string.humanize($state.current.data.group)
       }, {
@@ -2264,21 +2269,351 @@ if(window.jasmine || window.mocha) {
 }).call(this);
 
 (function() {
-  describe('page with sidebar', function() {
+  describe('breadcrumbService', function() {
+    beforeEach(module("guanlecoja.ui"));
+    return it('should forward call to setBreadcrumb via $broadcast', inject(function($rootScope, glBreadcrumbService) {
+      var gotBreadcrumb;
+      gotBreadcrumb = null;
+      $rootScope.$on("glBreadcrumb", function(e, data) {
+        return gotBreadcrumb = data;
+      });
+      glBreadcrumbService.setBreadcrumb({
+        foo: "bar"
+      });
+      $rootScope.$digest();
+      return expect(gotBreadcrumb).toEqual({
+        foo: "bar"
+      });
+    }));
+  });
+
+}).call(this);
+
+(function() {
+  describe('menuService', function() {
+    beforeEach(module("guanlecoja.ui", function($stateProvider, glMenuServiceProvider) {
+      var group, groups, i, item, j, state, stateProvider, _glMenuServiceProvider, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2;
+      _glMenuServiceProvider = glMenuServiceProvider;
+      stateProvider = $stateProvider;
+      groups = [];
+      _ref = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        i = _ref[_i];
+        group = {
+          name: i,
+          items: []
+        };
+        _ref1 = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
+        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+          j = _ref1[_j];
+          group.items.push({
+            name: i + j
+          });
+          if (i === "bug") {
+            break;
+          }
+        }
+        groups.push(group);
+        if (i === "edit") {
+          glMenuServiceProvider.addGroup({
+            name: group.name
+          });
+        } else {
+          glMenuServiceProvider.addGroup({
+            name: group.name,
+            caption: _.string.humanize(group.name),
+            icon: group.name,
+            order: i === "edit" ? void 0 : group.name.length
+          });
+        }
+      }
+      glMenuServiceProvider.setFooter([
+        {
+          caption: "Github",
+          href: "https://github.com/tardyp/guanlecoja-ui"
+        }
+      ]);
+      glMenuServiceProvider.setAppTitle("Guanlecoja-UI");
+      for (_k = 0, _len2 = groups.length; _k < _len2; _k++) {
+        group = groups[_k];
+        _ref2 = group.items;
+        for (_l = 0, _len3 = _ref2.length; _l < _len3; _l++) {
+          item = _ref2[_l];
+          state = {
+            name: item.name,
+            url: '/' + item.name,
+            data: {
+              group: item.name === "banedit" ? void 0 : group.name,
+              caption: item.name === "editedit" ? void 0 : _.string.humanize(item.name)
+            }
+          };
+          $stateProvider.state(state);
+        }
+      }
+      return null;
+    }));
+    it('should generate the menu correctly', inject(function(glMenuService) {
+      var g, groups, namedGroups, _i, _len;
+      groups = glMenuService.getGroups();
+      namedGroups = {};
+      for (_i = 0, _len = groups.length; _i < _len; _i++) {
+        g = groups[_i];
+        namedGroups[g.name] = g;
+      }
+      expect(groups.length).toEqual(7);
+      expect(groups[0].items.length).toEqual(7);
+      expect(namedGroups['bug'].items.length).toEqual(0);
+      return expect(namedGroups['bug'].caption).toEqual('Bugcab');
+    }));
+    it('should generate error if group is undefined', function() {
+      var run;
+      module(function($stateProvider, glMenuServiceProvider) {
+        $stateProvider.state({
+          name: "foo",
+          data: {
+            group: "bar"
+          }
+        });
+        return null;
+      });
+      run = function() {
+        return inject(function(glMenuService) {
+          var groups;
+          return groups = glMenuService.getGroups();
+        });
+      };
+      return expect(run).toThrow();
+    });
+    return it('should remove empty groups', function() {
+      module(function(glMenuServiceProvider) {
+        glMenuServiceProvider.addGroup({
+          name: "foo"
+        });
+        return null;
+      });
+      return inject(function(glMenuService) {
+        var g, groups, namedGroups, _i, _len;
+        groups = glMenuService.getGroups();
+        namedGroups = {};
+        for (_i = 0, _len = groups.length; _i < _len; _i++) {
+          g = groups[_i];
+          namedGroups[g.name] = g;
+        }
+        return expect(namedGroups["foo"]).not.toBeDefined();
+      });
+    });
+  });
+
+}).call(this);
+
+(function() {
+  describe('http Interceptor', function() {
+    beforeEach(module("guanlecoja.ui"));
+    it('should intercept errors', inject(function($q, $rootScope, glNotificationService, $timeout, glHttpInterceptor) {
+      var d, i;
+      d = $q.defer();
+      i = glHttpInterceptor(d.promise);
+      spyOn(glNotificationService, "network").and.returnValue(null);
+      d.reject("oups");
+      $rootScope.$digest();
+      $timeout.flush();
+      return expect(glNotificationService.network).toHaveBeenCalledWith("oups");
+    }));
+    return it('should intercept http errors', inject(function($q, $rootScope, glNotificationService, $timeout, glHttpInterceptor) {
+      var d, i;
+      d = $q.defer();
+      i = glHttpInterceptor(d.promise);
+      spyOn(glNotificationService, "network").and.returnValue(null);
+      d.reject({
+        status: "404",
+        data: {
+          error: "not found"
+        },
+        config: {
+          method: "get",
+          url: "http://foo"
+        }
+      });
+      $rootScope.$digest();
+      $timeout.flush();
+      return expect(glNotificationService.network).toHaveBeenCalledWith("404:not found when:get http://foo");
+    }));
+  });
+
+}).call(this);
+
+(function() {
+  describe('notificationService', function() {
+    beforeEach(module("guanlecoja.ui"));
+    return it('should add and delete notifications', inject(function(glNotificationService, $timeout) {
+      glNotificationService.notify({
+        msg: "done",
+        title: "finish"
+      });
+      expect(glNotificationService.notifications).toEqual([
+        {
+          id: 1,
+          msg: 'done',
+          title: 'finish'
+        }
+      ]);
+      glNotificationService.dismiss(1);
+      expect(glNotificationService.notifications).toEqual([]);
+      glNotificationService.notify({
+        msg: "done",
+        title: "finish",
+        group: "group"
+      });
+      glNotificationService.notify({
+        msg: "msg2",
+        title: "finish",
+        group: "group"
+      });
+      expect(glNotificationService.notifications).toEqual([
+        {
+          id: 2,
+          msg: 'done\nmsg2',
+          title: 'finish',
+          group: "group"
+        }
+      ]);
+      glNotificationService.dismiss(2);
+      expect(glNotificationService.notifications).toEqual([]);
+      glNotificationService.network({
+        msg: "404"
+      });
+      glNotificationService.network({
+        msg: "404",
+        title: "403"
+      });
+      glNotificationService.network({
+        msg: "404",
+        group: "Network"
+      });
+      glNotificationService.dismiss(4);
+      glNotificationService.error({
+        msg: "oups"
+      });
+      glNotificationService.error({
+        msg: "oups",
+        title: "error"
+      });
+      glNotificationService.dismiss(8);
+      expect(glNotificationService.notifications[0].id).toEqual(7);
+      glNotificationService.dismiss(7);
+      glNotificationService.dismiss(99);
+      expect(glNotificationService.notifications).toEqual([]);
+      glNotificationService.notify({
+        msg: "done1",
+        title: "finish"
+      });
+      glNotificationService.notify({
+        msg: "done2",
+        title: "finish",
+        group: "group"
+      });
+      glNotificationService.notify({
+        msg: "done3",
+        title: "finish",
+        group: "group"
+      });
+      glNotificationService.dismiss(9);
+      glNotificationService.dismiss(10);
+      return expect(glNotificationService.notifications).toEqual([]);
+    }));
+  });
+
+}).call(this);
+
+(function() {
+  describe('notification', function() {
     var elmBody, injected, scope;
     beforeEach(module("guanlecoja.ui"));
     elmBody = scope = null;
     injected = function($rootScope, $compile) {
-      elmBody = angular.element('<gl-page-with-sidebar></gl-page-with-sidebar>');
+      elmBody = angular.element('<gl-notification></gl-notification>');
       scope = $rootScope;
       $compile(elmBody)(scope);
       return scope.$digest();
     };
     beforeEach(inject(injected));
-    return it('should load', function() {
+    it('should load', function() {
       expect(elmBody).toBeDefined();
       return expect(elmBody.find("ul").length).toBeGreaterThan(0);
     });
+    it('should dismiss pass through', inject(function(glNotificationService) {
+      var called, e;
+      called = false;
+      e = {
+        stopPropagation: function() {
+          return called = true;
+        }
+      };
+      spyOn(glNotificationService, "dismiss").and.returnValue(null);
+      scope.n.dismiss(2, e);
+      expect(glNotificationService.dismiss).toHaveBeenCalledWith(2);
+      return expect(called).toBe(true);
+    }));
+    return it('should toggle', inject(function(glNotificationService) {
+      scope.n.toggle();
+      return expect(scope.isOpen).toBe(true);
+    }));
+  });
+
+}).call(this);
+
+(function() {
+  describe('page with sidebar', function() {
+    var elmBody, injected, rootScope, scope;
+    beforeEach(module("guanlecoja.ui"));
+    elmBody = scope = rootScope = null;
+    injected = function($rootScope, $compile, glMenuService) {
+      var groups;
+      rootScope = $rootScope;
+      elmBody = angular.element('<gl-page-with-sidebar></gl-page-with-sidebar>');
+      groups = [
+        {
+          name: 'g1',
+          items: [
+            {
+              name: 'i1',
+              'sref': ".."
+            }
+          ]
+        }, {
+          name: 'g2'
+        }
+      ];
+      glMenuService.getGroups = function() {
+        return groups;
+      };
+      scope = $rootScope;
+      $compile(elmBody)(scope);
+      return scope.$digest();
+    };
+    beforeEach(inject(injected));
+    it('should load', function() {
+      expect(elmBody).toBeDefined();
+      return expect(elmBody.find("ul").length).toBeGreaterThan(0);
+    });
+    return it('should behave', inject(function($timeout) {
+      var g;
+      expect(elmBody).toBeDefined();
+      g = scope.page.groups[1];
+      scope.page.toggleGroup(g);
+      expect(scope.page.activeGroup).toBe(g);
+      scope.page.toggleGroup(g);
+      expect(scope.page.activeGroup).toBe(null);
+      scope.page.enterSidebar();
+      expect(scope.page.sidebarActive).toBe(true);
+      scope.page.leaveSidebar();
+      expect(scope.page.sidebarActive).toBe(true);
+      scope.page.enterSidebar();
+      expect(scope.page.sidebarActive).toBe(true);
+      scope.page.leaveSidebar();
+      $timeout.flush();
+      return expect(scope.page.sidebarActive).toBe(false);
+    }));
   });
 
 }).call(this);
@@ -2295,10 +2630,36 @@ if(window.jasmine || window.mocha) {
       return scope.$digest();
     };
     beforeEach(inject(injected));
-    return it('should load', function() {
+    it('should load', function() {
       expect(elmBody).toBeDefined();
       return expect(elmBody.find("ul").length).toBeGreaterThan(0);
     });
+    return it('should update breadcrumb upon messages', inject(function($location) {
+      $location.hash = function() {
+        return "bar/";
+      };
+      scope.$broadcast("$stateChangeStart", {
+        name: "foo"
+      });
+      expect(scope.breadcrumb).toEqual([
+        {
+          caption: 'Foo',
+          href: '#bar/'
+        }
+      ]);
+      scope.$broadcast("glBreadcrumb", [
+        {
+          caption: "bar",
+          sref: "foo"
+        }
+      ]);
+      return expect(scope.breadcrumb).toEqual([
+        {
+          caption: 'bar',
+          sref: 'foo'
+        }
+      ]);
+    }));
   });
 
 }).call(this);
