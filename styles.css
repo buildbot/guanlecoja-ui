@@ -78,6 +78,7 @@ body {
   height: 100%;
   bottom: 0;
   /* theme */
+  /* add scrollbar if the menu is open */
   /* sidebar */
   /* footer */
   /* content */
@@ -103,7 +104,7 @@ body {
   transform: translate(180px, 0px);
   -webkit-transform: translate(180px, 0px);
 }
-.gl-page-with-sidebar.active:not(.pinned) .sidebar .sidebar ul {
+.gl-page-with-sidebar.active .sidebar ul {
   overflow-y: auto;
 }
 .gl-page-with-sidebar:not(.active) .sidebar.blue ul.sidebar .sidebar-title.separator {
