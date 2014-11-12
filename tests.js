@@ -3109,10 +3109,32 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
     return _results;
   });
 
-  m.controller("dummyController", function($scope, $state, glBreadcrumbService, glNotificationService) {
+  m.controller("dummyController", function($scope, $state, glBreadcrumbService, glNotificationService, glTopbarContextualActionsService) {
+    glTopbarContextualActionsService.setContextualActions([
+      {
+        caption: "Download Doc",
+        icon: "download",
+        action: function() {
+          return document.location = 'Readme.md';
+        }
+      }, {
+        caption: "View on Github",
+        icon: "github",
+        help: "Go to the github page of guanleoja-ui",
+        action: function() {
+          return document.location = README;
+        }
+      }, {
+        icon: "google-plus",
+        action: function() {
+          return document.location = "https://plus.google.com";
+        }
+      }
+    ]);
     $scope.stateName = $state.current.name;
     glNotificationService.notify({
-      msg: "You just transitioned to " + $scope.stateName + "!",
+      msg: "You just transitioned to " + $scope.stateName + "!"
+    }, {
       title: "State transitions",
       group: "state"
     });
@@ -3545,6 +3567,52 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
           sref: 'foo'
         }
       ]);
+    }));
+  });
+
+}).call(this);
+
+(function() {
+  describe('topbar-contextual-actions', function() {
+    var elmBody, injected, scope;
+    beforeEach(module("guanlecoja.ui"));
+    elmBody = scope = null;
+    injected = function($rootScope, $compile) {
+      elmBody = angular.element('<gl-topbar-contextual-actions></gl-contextual-actions>');
+      scope = $rootScope.$new();
+      $compile(elmBody)(scope);
+      return scope.$digest();
+    };
+    beforeEach(inject(injected));
+    it('should load', function() {
+      expect(elmBody).toBeDefined();
+      return expect(elmBody.find("li").length).toEqual(0);
+    });
+    return it('should create buttons', inject(function(glTopbarContextualActionsService) {
+      var called;
+      expect(elmBody).toBeDefined();
+      called = 0;
+      glTopbarContextualActionsService.setContextualActions([
+        {
+          caption: "foo",
+          action: function() {
+            return called++;
+          }
+        }, {
+          caption: "bar",
+          action: function() {
+            return called++;
+          }
+        }
+      ], scope.$digest());
+      scope.$digest();
+      expect(elmBody.find("span").length).toEqual(2);
+      expect(elmBody.find("button").text()).toEqual("foobar");
+      elmBody.find("button").each(function() {
+        return $(this).click();
+      });
+      scope.$digest();
+      return expect(called).toEqual(2);
     }));
   });
 

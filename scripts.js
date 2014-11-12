@@ -391,7 +391,65 @@
 
 }).call(this);
 
+(function() {
+  var GlTopbarContextualActions, glTopbarContextualActions, _glTopbarContextualActions;
+
+  GlTopbarContextualActions = (function() {
+    function GlTopbarContextualActions() {
+      return {
+        replace: true,
+        restrict: 'E',
+        scope: true,
+        templateUrl: "guanlecoja.ui/views/topbar-contextual-actions.html",
+        controller: "_glTopbarContextualActionsController"
+      };
+    }
+
+    return GlTopbarContextualActions;
+
+  })();
+
+  _glTopbarContextualActions = (function() {
+    function _glTopbarContextualActions($scope, $sce) {
+      $scope.$on("$stateChangeStart", function(ev, state) {
+        return $scope.actions = [];
+      });
+      $scope.$on("glSetContextualActions", function(e, data) {
+        var item, _i, _len;
+        for (_i = 0, _len = data.length; _i < _len; _i++) {
+          item = data[_i];
+          if (item.extra_class == null) {
+            item.extra_class = "";
+          }
+        }
+        return $scope.actions = data;
+      });
+    }
+
+    return _glTopbarContextualActions;
+
+  })();
+
+  glTopbarContextualActions = (function() {
+    function glTopbarContextualActions($rootScope) {
+      this.$rootScope = $rootScope;
+      ({});
+    }
+
+    glTopbarContextualActions.prototype.setContextualActions = function(actions) {
+      return this.$rootScope.$broadcast("glSetContextualActions", actions);
+    };
+
+    return glTopbarContextualActions;
+
+  })();
+
+  angular.module('guanlecoja.ui').directive('glTopbarContextualActions', [GlTopbarContextualActions]).controller('_glTopbarContextualActionsController', ['$scope', '$sce', _glTopbarContextualActions]).service('glTopbarContextualActionsService', ['$rootScope', glTopbarContextualActions]);
+
+}).call(this);
+
 angular.module("guanlecoja.ui").run(["$templateCache", function($templateCache) {$templateCache.put("guanlecoja.ui/views/notification.html","<li class=\"dropdown notifications\"><a class=\"dropdown-toggle\"><i ng-class=\"{\'fa-ringing\': n.notifications.length &gt; 0 }\" class=\"fa fa-bell-o fa-lg\"></i></a><ul class=\"dropdown-menu dropdown-menu-right\"><li class=\"dropdown-header\">Notifications</li><li class=\"divider\"></li><div ng-repeat=\"msg in n.notifications\"><li><div class=\"item\"><button ng-click=\"n.dismiss(msg.id, $event)\" class=\"close\">&times;</button><div class=\"title\">{{msg.title}}:</div><div class=\"msg\">{{msg.msg}}</div></div></li><li class=\"divider\"></li></div><li ng-hide=\"n.notifications.length&gt;0\"><div class=\"item\"><small class=\"msg\"> all caught up!</small></div></li></ul></li>");
-$templateCache.put("guanlecoja.ui/views/page_with_sidebar.html","<div ng-class=\"{\'active\': page.sidebarActive, \'pinned\': page.sidebarPinned}\" class=\"gl-page-with-sidebar\"><div ng-mouseenter=\"page.enterSidebar()\" ng-mouseleave=\"page.leaveSidebar()\" class=\"sidebar sidebar-blue\"><ul><li class=\"sidebar-main\"><a href=\"javascript:\">{{page.appTitle}}<span ng-hide=\"page.sidebarActive\" ng-click=\"page.sidebarActive=!page.sidebarActive\" class=\"menu-icon fa fa-bars\"></span><span ng-show=\"page.sidebarActive\" ng-click=\"page.sidebarPinned=!page.sidebarPinned\" ng-class=\"{\'fa-45\': !page.sidebarPinned}\" class=\"menu-icon fa fa-thumb-tack\"></span></a></li><li class=\"sidebar-title\"><span>NAVIGATION</span></li><div ng-repeat=\"group in page.groups\"><div ng-if=\"group.items.length &gt; 0\"><li class=\"sidebar-list\"><a ng-click=\"page.toggleGroup(group)\"><i class=\"fa fa-angle-right\"></i>&nbsp;{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li><li ng-class=\"{\'active\': page.activeGroup==group}\" ng-repeat=\"item in group.items\" class=\"sidebar-list subitem\"><a ui-sref=\"{{item.sref}}\" ng-click=\"page.hideSidebar()\">{{item.caption}}</a></li></div><div ng-if=\"group.items.length == 0\"><div ng-if=\"group.separator\"><li class=\"sidebar-title\"><span>{{group.caption}}</span></li></div><div ng-if=\"!group.separator\"><li ng-if=\"!$first\" class=\"sidebar-separator\"></li><li class=\"sidebar-list\"><a ui-sref=\"{{group.sref}}\" ng-click=\"page.toggleGroup(group)\">{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li></div></div></div></ul><div class=\"sidebar-footer\"><div ng-repeat=\"item in page.footer\" class=\"col-xs-4\"><a ng-href=\"{{item.href}}\">{{item.caption}}</a></div></div></div><div class=\"content\"><div ng-transclude=\"ng-transclude\"></div></div></div>");
-$templateCache.put("guanlecoja.ui/views/topbar.html","<div class=\"navbar navbar-default navbar-static-top\"><div class=\"container-fluid\"><a class=\"navbar-brand\">{{appTitle}}</a><ol class=\"breadcrumb\"><li ng-repeat=\"b in breadcrumb\"><a ng-if=\"b.sref\" ui-sref=\"{{b.sref}}\">{{b.caption}}</a><a ng-if=\"b.href\" ng-href=\"{{b.href}}\">{{b.caption}}</a><span ng-if=\"b.href == undefined &amp;&amp; b.sref == undefined\" ng-href=\"{{b.href}}\">{{b.caption}}</span></li></ol><ul ng-transclude=\"ng-transclude\" class=\"nav navbar-nav pull-right\"></ul></div></div>");}]);
+$templateCache.put("guanlecoja.ui/views/topbar-contextual-actions.html","<form class=\"navbar-form navbar-left\"><span ng-repeat=\"a in actions\"><button type=\"button\" ng-class=\"a.extra_class\" ng-click=\"a.action()\" title=\"{{a.help}}\" class=\"btn btn-default\"><i ng-if=\"a.icon\" ng-class=\"\'fa-\' + a.icon\" class=\"fa\"></i><span ng-if=\"a.icon&amp;&amp;a.caption\">&nbsp;</span>{{::a.caption}}</button>&nbsp;</span></form>");
+$templateCache.put("guanlecoja.ui/views/topbar.html","<div class=\"navbar navbar-default navbar-static-top\"><div class=\"container-fluid\"><a class=\"navbar-brand\">{{appTitle}}</a><ol class=\"breadcrumb\"><li ng-repeat=\"b in breadcrumb\"><a ng-if=\"b.sref\" ui-sref=\"{{b.sref}}\">{{b.caption}}</a><a ng-if=\"b.href\" ng-href=\"{{b.href}}\">{{b.caption}}</a><span ng-if=\"b.href == undefined &amp;&amp; b.sref == undefined\" ng-href=\"{{b.href}}\">{{b.caption}}</span></li></ol><ul ng-transclude=\"ng-transclude\" class=\"nav navbar-nav pull-right\"></ul></div></div>");
+$templateCache.put("guanlecoja.ui/views/page_with_sidebar.html","<div ng-class=\"{\'active\': page.sidebarActive, \'pinned\': page.sidebarPinned}\" class=\"gl-page-with-sidebar\"><div ng-mouseenter=\"page.enterSidebar()\" ng-mouseleave=\"page.leaveSidebar()\" class=\"sidebar sidebar-blue\"><ul><li class=\"sidebar-main\"><a href=\"javascript:\">{{page.appTitle}}<span ng-hide=\"page.sidebarActive\" ng-click=\"page.sidebarActive=!page.sidebarActive\" class=\"menu-icon fa fa-bars\"></span><span ng-show=\"page.sidebarActive\" ng-click=\"page.sidebarPinned=!page.sidebarPinned\" ng-class=\"{\'fa-45\': !page.sidebarPinned}\" class=\"menu-icon fa fa-thumb-tack\"></span></a></li><li class=\"sidebar-title\"><span>NAVIGATION</span></li><div ng-repeat=\"group in page.groups\"><div ng-if=\"group.items.length &gt; 0\"><li class=\"sidebar-list\"><a ng-click=\"page.toggleGroup(group)\"><i class=\"fa fa-angle-right\"></i>&nbsp;{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li><li ng-class=\"{\'active\': page.activeGroup==group}\" ng-repeat=\"item in group.items\" class=\"sidebar-list subitem\"><a ui-sref=\"{{item.sref}}\" ng-click=\"page.hideSidebar()\">{{item.caption}}</a></li></div><div ng-if=\"group.items.length == 0\"><div ng-if=\"group.separator\"><li class=\"sidebar-title\"><span>{{group.caption}}</span></li></div><div ng-if=\"!group.separator\"><li ng-if=\"!$first\" class=\"sidebar-separator\"></li><li class=\"sidebar-list\"><a ui-sref=\"{{group.sref}}\" ng-click=\"page.toggleGroup(group)\">{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li></div></div></div></ul><div class=\"sidebar-footer\"><div ng-repeat=\"item in page.footer\" class=\"col-xs-4\"><a ng-href=\"{{item.href}}\">{{item.caption}}</a></div></div></div><div class=\"content\"><div ng-transclude=\"ng-transclude\"></div></div></div>");}]);
 //# sourceMappingURL=scripts.js.map
