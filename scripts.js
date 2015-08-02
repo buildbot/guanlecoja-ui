@@ -283,16 +283,17 @@
   })();
 
   _glPageWithSidebar = (function() {
-    function _glPageWithSidebar($scope, glMenuService, $timeout) {
+    function _glPageWithSidebar($scope, glMenuService, $timeout, $window) {
       this.$scope = $scope;
       this.$timeout = $timeout;
-      this.sidebarPinned = false;
+      this.$window = $window;
+      this.sidebarPinned = this.$window.innerWidth > 800;
       this.groups = glMenuService.getGroups();
       this.footer = glMenuService.getFooter();
       this.appTitle = glMenuService.getAppTitle();
       this.activeGroup = null;
       this.inSidebar = false;
-      this.sidebarActive = false;
+      this.sidebarActive = this.sidebarPinned;
     }
 
     _glPageWithSidebar.prototype.toggleGroup = function(group) {
@@ -333,7 +334,7 @@
 
   })();
 
-  angular.module('guanlecoja.ui').directive('glPageWithSidebar', [GlPageWithSidebar]).controller('_glPageWithSidebarController', ['$scope', 'glMenuService', '$timeout', _glPageWithSidebar]);
+  angular.module('guanlecoja.ui').directive('glPageWithSidebar', [GlPageWithSidebar]).controller('_glPageWithSidebarController', ['$scope', 'glMenuService', '$timeout', '$window', _glPageWithSidebar]);
 
 }).call(this);
 
