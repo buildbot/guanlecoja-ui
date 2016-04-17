@@ -1,6 +1,4 @@
 (function() {
-  _.mixin(_.str.exports());
-
   angular.module("guanlecoja.ui", ["ui.bootstrap", "ui.router", "ngAnimate"]);
 
 }).call(this);
@@ -56,10 +54,10 @@
 
     GlMenu.prototype.$get = [
       "$state", function($state) {
-        var group, groups, item, name, self, state, _i, _len, _ref, _ref1;
-        _ref = $state.get().slice(1);
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          state = _ref[_i];
+        var group, groups, i, item, len, name, ref, ref1, self, state;
+        ref = $state.get().slice(1);
+        for (i = 0, len = ref.length; i < len; i++) {
+          state = ref[i];
           group = state.data.group;
           if (group == null) {
             continue;
@@ -68,13 +66,13 @@
             throw Error("group " + group + " has not been defined with glMenuProvider.group(). has: " + (_.keys(this.groups)));
           }
           this.groups[group].items.push({
-            caption: state.data.caption || _.string.humanize(state.name),
+            caption: state.data.caption || _.capitalize(state.name),
             sref: state.name
           });
         }
-        _ref1 = this.groups;
-        for (name in _ref1) {
-          group = _ref1[name];
+        ref1 = this.groups;
+        for (name in ref1) {
+          group = ref1[name];
           if (group.items.length === 0 && !group.separator) {
             delete this.groups[name];
           } else if (group.items.length === 1) {
@@ -121,11 +119,11 @@
       return function(promise) {
         var errorHandler;
         errorHandler = function(res) {
-          var e, msg;
+          var e, error, msg;
           try {
-            msg = ("" + res.status + ":" + res.data.error + " ") + ("when:" + res.config.method + " " + res.config.url);
-          } catch (_error) {
-            e = _error;
+            msg = (res.status + ":" + res.data.error + " ") + ("when:" + res.config.method + " " + res.config.url);
+          } catch (error) {
+            e = error;
             msg = res.toString();
           }
           $timeout((function() {
@@ -158,7 +156,7 @@
     }
 
     glNotification.prototype.notify = function(opts) {
-      var i, id, n, _ref;
+      var i, id, n, ref;
       this.curid += 1;
       if (opts.title == null) {
         opts.title = "Info";
@@ -166,9 +164,9 @@
       opts.id = this.curid;
       id = this.curid;
       if (opts.group != null) {
-        _ref = this.notifications;
-        for (i in _ref) {
-          n = _ref[i];
+        ref = this.notifications;
+        for (i in ref) {
+          n = ref[i];
           if (opts.group === n.group) {
             id = i;
             n.msg += "\n" + opts.msg;
@@ -199,10 +197,10 @@
     };
 
     glNotification.prototype.dismiss = function(id) {
-      var i, n, _ref;
-      _ref = this.notifications;
-      for (i in _ref) {
-        n = _ref[i];
+      var i, n, ref;
+      ref = this.notifications;
+      for (i in ref) {
+        n = ref[i];
         if (n.id === id) {
           this.notifications.splice(i, 1);
           return null;
@@ -240,10 +238,9 @@
   })();
 
   _glNotification = (function() {
-    function _glNotification($scope, glNotificationService, dropdownService) {
+    function _glNotification($scope, glNotificationService) {
       this.$scope = $scope;
       this.glNotificationService = glNotificationService;
-      this.dropdownService = dropdownService;
       this.notifications = this.glNotificationService.notifications;
       null;
     }
@@ -258,7 +255,7 @@
 
   })();
 
-  angular.module('guanlecoja.ui').directive('glNotification', [GlNotification]).controller('_glNotificationController', ['$scope', 'glNotificationService', 'dropdownService', _glNotification]);
+  angular.module('guanlecoja.ui').directive('glNotification', [GlNotification]).controller('_glNotificationController', ['$scope', 'glNotificationService', _glNotification]);
 
 }).call(this);
 
@@ -367,15 +364,15 @@
       }), groups);
       $scope.appTitle = glMenuService.getAppTitle();
       $scope.$on("$stateChangeStart", function(ev, state) {
-        var _ref, _ref1, _ref2;
+        var ref, ref1, ref2;
         $scope.breadcrumb = [];
-        if (((_ref = state.data) != null ? _ref.group : void 0) && ((_ref1 = state.data) != null ? _ref1.caption : void 0) !== groups[state.data.group].caption) {
+        if (((ref = state.data) != null ? ref.group : void 0) && ((ref1 = state.data) != null ? ref1.caption : void 0) !== groups[state.data.group].caption) {
           $scope.breadcrumb.push({
             caption: groups[state.data.group].caption
           });
         }
         return $scope.breadcrumb.push({
-          caption: ((_ref2 = state.data) != null ? _ref2.caption : void 0) || _.humanize(state.name),
+          caption: ((ref2 = state.data) != null ? ref2.caption : void 0) || _.capitalize(state.name),
           href: '#' + $location.hash()
         });
       });
@@ -393,7 +390,7 @@
 }).call(this);
 
 (function() {
-  var GlTopbarContextualActions, glTopbarContextualActions, _glTopbarContextualActions;
+  var GlTopbarContextualActions, _glTopbarContextualActions, glTopbarContextualActions;
 
   GlTopbarContextualActions = (function() {
     function GlTopbarContextualActions() {
@@ -416,9 +413,9 @@
         return $scope.actions = [];
       });
       $scope.$on("glSetContextualActions", function(e, data) {
-        var item, _i, _len;
-        for (_i = 0, _len = data.length; _i < _len; _i++) {
-          item = data[_i];
+        var i, item, len;
+        for (i = 0, len = data.length; i < len; i++) {
+          item = data[i];
           if (item.extra_class == null) {
             item.extra_class = "";
           }
@@ -449,7 +446,7 @@
 
 }).call(this);
 
-angular.module("guanlecoja.ui").run(["$templateCache", function($templateCache) {$templateCache.put("guanlecoja.ui/views/notification.html","<li class=\"dropdown notifications\"><a class=\"dropdown-toggle\"><i ng-class=\"{\'fa-ringing\': n.notifications.length &gt; 0 }\" class=\"fa fa-bell-o fa-lg\"></i></a><ul class=\"dropdown-menu dropdown-menu-right\"><li class=\"dropdown-header\">Notifications</li><li class=\"divider\"></li><div ng-repeat=\"msg in n.notifications\"><li><div class=\"item\"><button ng-click=\"n.dismiss(msg.id, $event)\" class=\"close\">&times;</button><div class=\"title\">{{msg.title}}:</div><div class=\"msg\">{{msg.msg}}</div></div></li><li class=\"divider\"></li></div><li ng-hide=\"n.notifications.length&gt;0\"><div class=\"item\"><small class=\"msg\"> all caught up!</small></div></li></ul></li>");
+angular.module("guanlecoja.ui").run(["$templateCache", function($templateCache) {$templateCache.put("guanlecoja.ui/views/notification.html","<li uib-dropdown=\"uib-dropdown\" class=\"dropdown notifications\"><a uib-dropdown-toggle=\"uib-dropdown-toggle\"><i ng-class=\"{\'fa-ringing\': n.notifications.length &gt; 0 }\" class=\"fa fa-bell-o fa-lg\"></i></a><ul dropdown-toggle=\"dropdown-toggle\" class=\"uib-dropdown-menu dropdown-menu dropdown-menu-right\"><li class=\"dropdown-header\">Notifications</li><li class=\"divider\"></li><div ng-repeat=\"msg in n.notifications\"><li><div class=\"item\"><button ng-click=\"n.dismiss(msg.id, $event)\" class=\"close\">&times;</button><div class=\"title\">{{msg.title}}:</div><div class=\"msg\">{{msg.msg}}</div></div></li><li class=\"divider\"></li></div><li ng-hide=\"n.notifications.length&gt;0\"><div class=\"item\"><small class=\"msg\"> all caught up!</small></div></li></ul></li>");
 $templateCache.put("guanlecoja.ui/views/page_with_sidebar.html","<div ng-class=\"{\'active\': page.sidebarActive, \'pinned\': page.sidebarPinned}\" class=\"gl-page-with-sidebar\"><div ng-mouseenter=\"page.enterSidebar()\" ng-mouseleave=\"page.leaveSidebar()\" class=\"sidebar sidebar-blue\"><ul><li class=\"sidebar-main\"><a href=\"javascript:\">{{page.appTitle}}<span ng-hide=\"page.sidebarActive\" ng-click=\"page.sidebarActive=!page.sidebarActive\" class=\"menu-icon fa fa-bars\"></span><span ng-show=\"page.sidebarActive\" ng-click=\"page.sidebarPinned=!page.sidebarPinned\" ng-class=\"{\'fa-45\': !page.sidebarPinned}\" class=\"menu-icon fa fa-thumb-tack\"></span></a></li><li class=\"sidebar-title\"><span>NAVIGATION</span></li><div ng-repeat=\"group in page.groups\"><div ng-if=\"group.items.length &gt; 0\"><li class=\"sidebar-list\"><a ng-click=\"page.toggleGroup(group)\"><i class=\"fa fa-angle-right\"></i>&nbsp;{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li><li ng-class=\"{\'active\': page.activeGroup==group}\" ng-repeat=\"item in group.items\" class=\"sidebar-list subitem\"><a ui-sref=\"{{item.sref}}\" ng-click=\"page.hideSidebar()\">{{item.caption}}</a></li></div><div ng-if=\"group.items.length == 0\"><div ng-if=\"group.separator\"><li class=\"sidebar-title\"><span>{{group.caption}}</span></li></div><div ng-if=\"!group.separator\"><li ng-if=\"!$first\" class=\"sidebar-separator\"></li><li class=\"sidebar-list\"><a ui-sref=\"{{group.sref}}\" ng-click=\"page.toggleGroup(group)\">{{group.caption}}<span ng-class=\"\'fa-\' + group.icon\" class=\"menu-icon fa\"></span></a></li></div></div></div></ul><div class=\"sidebar-footer\"><div ng-repeat=\"item in page.footer\" class=\"col-xs-4\"><a ng-href=\"{{item.href}}\">{{item.caption}}</a></div></div></div><div class=\"content\"><div ng-transclude=\"ng-transclude\"></div></div></div>");
 $templateCache.put("guanlecoja.ui/views/topbar.html","<div class=\"navbar navbar-default navbar-static-top\"><div class=\"container-fluid\"><a class=\"navbar-brand\">{{appTitle}}</a><ol class=\"breadcrumb\"><li ng-repeat=\"b in breadcrumb\"><a ng-if=\"b.sref\" ui-sref=\"{{b.sref}}\">{{b.caption}}</a><a ng-if=\"b.href\" ng-href=\"{{b.href}}\">{{b.caption}}</a><span ng-if=\"b.href == undefined &amp;&amp; b.sref == undefined\" ng-href=\"{{b.href}}\">{{b.caption}}</span></li></ol><ul ng-transclude=\"ng-transclude\" class=\"nav navbar-nav pull-right\"></ul></div></div>");
 $templateCache.put("guanlecoja.ui/views/topbar-contextual-actions.html","<form class=\"navbar-form navbar-left\"><span ng-repeat=\"a in actions\"><button type=\"button\" ng-class=\"a.extra_class\" ng-click=\"a.action()\" title=\"{{a.help}}\" class=\"btn btn-default\"><i ng-if=\"a.icon\" ng-class=\"\'fa-\' + a.icon\" class=\"fa\"></i><span ng-if=\"a.icon&amp;&amp;a.caption\">&nbsp;</span>{{::a.caption}}</button>&nbsp;</span></form>");}]);

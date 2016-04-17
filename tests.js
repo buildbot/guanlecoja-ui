@@ -1,6 +1,6 @@
 /**
- * @license AngularJS v1.4.3
- * (c) 2010-2015 Google, Inc. http://angularjs.org
+ * @license AngularJS v1.5.3
+ * (c) 2010-2016 Google, Inc. http://angularjs.org
  * License: MIT
  */
 (function(window, angular, undefined) {
@@ -94,7 +94,7 @@ angular.mock.$Browser = function() {
       if (fn.id === deferId) fnIndex = index;
     });
 
-    if (fnIndex !== undefined) {
+    if (angular.isDefined(fnIndex)) {
       self.deferredFns.splice(fnIndex, 1);
       return true;
     }
@@ -134,12 +134,12 @@ angular.mock.$Browser = function() {
 };
 angular.mock.$Browser.prototype = {
 
-/**
-  * @name $browser#poll
-  *
-  * @description
-  * run all fns in pollFns
-  */
+  /**
+   * @name $browser#poll
+   *
+   * @description
+   * run all fns in pollFns
+   */
   poll: function poll() {
     angular.forEach(this.pollFns, function(pollFn) {
       pollFn();
@@ -469,7 +469,7 @@ angular.mock.$IntervalProvider = function() {
             if (fn.id === promise.$$intervalId) fnIndex = index;
           });
 
-          if (fnIndex !== undefined) {
+          if (angular.isDefined(fnIndex)) {
             repeatFns.splice(fnIndex, 1);
           }
         }
@@ -511,7 +511,7 @@ angular.mock.$IntervalProvider = function() {
         if (fn.id === promise.$$intervalId) fnIndex = index;
       });
 
-      if (fnIndex !== undefined) {
+      if (angular.isDefined(fnIndex)) {
         repeatFns[fnIndex].deferred.reject('canceled');
         repeatFns.splice(fnIndex, 1);
         return true;
@@ -552,7 +552,7 @@ angular.mock.$IntervalProvider = function() {
  * This directive should go inside the anonymous function but a bug in JSHint means that it would
  * not be enacted early enough to prevent the warning.
  */
-var R_ISO8061_STR = /^(\d{4})-?(\d\d)-?(\d\d)(?:T(\d\d)(?:\:?(\d\d)(?:\:?(\d\d)(?:\.(\d{3}))?)?)?(Z|([+-])(\d\d):?(\d\d)))?$/;
+var R_ISO8061_STR = /^(-?\d{4})-?(\d\d)-?(\d\d)(?:T(\d\d)(?:\:?(\d\d)(?:\:?(\d\d)(?:\.(\d{3}))?)?)?(Z|([+-])(\d\d):?(\d\d)))?$/;
 
 function jsonStringToDate(string) {
   var match;
@@ -578,7 +578,7 @@ function toInt(str) {
   return parseInt(str, 10);
 }
 
-function padNumber(num, digits, trim) {
+function padNumberInMock(num, digits, trim) {
   var neg = '';
   if (num < 0) {
     neg =  '-';
@@ -727,13 +727,13 @@ angular.mock.TzDate = function(offset, timestamp) {
   // provide this method only on browsers that already have it
   if (self.toISOString) {
     self.toISOString = function() {
-      return padNumber(self.origDate.getUTCFullYear(), 4) + '-' +
-            padNumber(self.origDate.getUTCMonth() + 1, 2) + '-' +
-            padNumber(self.origDate.getUTCDate(), 2) + 'T' +
-            padNumber(self.origDate.getUTCHours(), 2) + ':' +
-            padNumber(self.origDate.getUTCMinutes(), 2) + ':' +
-            padNumber(self.origDate.getUTCSeconds(), 2) + '.' +
-            padNumber(self.origDate.getUTCMilliseconds(), 3) + 'Z';
+      return padNumberInMock(self.origDate.getUTCFullYear(), 4) + '-' +
+            padNumberInMock(self.origDate.getUTCMonth() + 1, 2) + '-' +
+            padNumberInMock(self.origDate.getUTCDate(), 2) + 'T' +
+            padNumberInMock(self.origDate.getUTCHours(), 2) + ':' +
+            padNumberInMock(self.origDate.getUTCMinutes(), 2) + ':' +
+            padNumberInMock(self.origDate.getUTCSeconds(), 2) + '.' +
+            padNumberInMock(self.origDate.getUTCMilliseconds(), 3) + 'Z';
     };
   }
 
@@ -758,40 +758,152 @@ angular.mock.TzDate = function(offset, timestamp) {
 angular.mock.TzDate.prototype = Date.prototype;
 /* jshint +W101 */
 
+
+/**
+ * @ngdoc service
+ * @name $animate
+ *
+ * @description
+ * Mock implementation of the {@link ng.$animate `$animate`} service. Exposes two additional methods
+ * for testing animations.
+ */
 angular.mock.animate = angular.module('ngAnimateMock', ['ng'])
 
   .config(['$provide', function($provide) {
 
-    var reflowQueue = [];
-    $provide.value('$$animateReflow', function(fn) {
-      var index = reflowQueue.length;
-      reflowQueue.push(fn);
-      return function cancel() {
-        reflowQueue.splice(index, 1);
-      };
+    $provide.factory('$$forceReflow', function() {
+      function reflowFn() {
+        reflowFn.totalReflows++;
+      }
+      reflowFn.totalReflows = 0;
+      return reflowFn;
     });
 
-    $provide.decorator('$animate', ['$delegate', '$timeout', '$browser', '$$rAF',
-                            function($delegate,   $timeout,   $browser,   $$rAF) {
+    $provide.factory('$$animateAsyncRun', function() {
+      var queue = [];
+      var queueFn = function() {
+        return function(fn) {
+          queue.push(fn);
+        };
+      };
+      queueFn.flush = function() {
+        if (queue.length === 0) return false;
+
+        for (var i = 0; i < queue.length; i++) {
+          queue[i]();
+        }
+        queue = [];
+
+        return true;
+      };
+      return queueFn;
+    });
+
+    $provide.decorator('$$animateJs', ['$delegate', function($delegate) {
+      var runners = [];
+
+      var animateJsConstructor = function() {
+        var animator = $delegate.apply($delegate, arguments);
+        // If no javascript animation is found, animator is undefined
+        if (animator) {
+          runners.push(animator);
+        }
+        return animator;
+      };
+
+      animateJsConstructor.$closeAndFlush = function() {
+        runners.forEach(function(runner) {
+          runner.end();
+        });
+        runners = [];
+      };
+
+      return animateJsConstructor;
+    }]);
+
+    $provide.decorator('$animateCss', ['$delegate', function($delegate) {
+      var runners = [];
+
+      var animateCssConstructor = function(element, options) {
+        var animator = $delegate(element, options);
+        runners.push(animator);
+        return animator;
+      };
+
+      animateCssConstructor.$closeAndFlush = function() {
+        runners.forEach(function(runner) {
+          runner.end();
+        });
+        runners = [];
+      };
+
+      return animateCssConstructor;
+    }]);
+
+    $provide.decorator('$animate', ['$delegate', '$timeout', '$browser', '$$rAF', '$animateCss', '$$animateJs',
+                                    '$$forceReflow', '$$animateAsyncRun', '$rootScope',
+                            function($delegate,   $timeout,   $browser,   $$rAF,   $animateCss,   $$animateJs,
+                                     $$forceReflow,   $$animateAsyncRun,  $rootScope) {
       var animate = {
         queue: [],
         cancel: $delegate.cancel,
+        on: $delegate.on,
+        off: $delegate.off,
+        pin: $delegate.pin,
+        get reflows() {
+          return $$forceReflow.totalReflows;
+        },
         enabled: $delegate.enabled,
-        triggerCallbackEvents: function() {
-          $$rAF.flush();
+        /**
+         * @ngdoc method
+         * @name $animate#closeAndFlush
+         * @description
+         *
+         * This method will close all pending animations (both {@link ngAnimate#javascript-based-animations Javascript}
+         * and {@link ngAnimate.$animateCss CSS}) and it will also flush any remaining animation frames and/or callbacks.
+         */
+        closeAndFlush: function() {
+          // we allow the flush command to swallow the errors
+          // because depending on whether CSS or JS animations are
+          // used, there may not be a RAF flush. The primary flush
+          // at the end of this function must throw an exception
+          // because it will track if there were pending animations
+          this.flush(true);
+          $animateCss.$closeAndFlush();
+          $$animateJs.$closeAndFlush();
+          this.flush();
         },
-        triggerCallbackPromise: function() {
-          $timeout.flush(0);
-        },
-        triggerCallbacks: function() {
-          this.triggerCallbackEvents();
-          this.triggerCallbackPromise();
-        },
-        triggerReflow: function() {
-          angular.forEach(reflowQueue, function(fn) {
-            fn();
-          });
-          reflowQueue = [];
+        /**
+         * @ngdoc method
+         * @name $animate#flush
+         * @description
+         *
+         * This method is used to flush the pending callbacks and animation frames to either start
+         * an animation or conclude an animation. Note that this will not actually close an
+         * actively running animation (see {@link ngMock.$animate#closeAndFlush `closeAndFlush()`} for that).
+         */
+        flush: function(hideErrors) {
+          $rootScope.$digest();
+
+          var doNextRun, somethingFlushed = false;
+          do {
+            doNextRun = false;
+
+            if ($$rAF.queue.length) {
+              $$rAF.flush();
+              doNextRun = somethingFlushed = true;
+            }
+
+            if ($$animateAsyncRun.flush()) {
+              doNextRun = somethingFlushed = true;
+            }
+          } while (doNextRun);
+
+          if (!somethingFlushed && !hideErrors) {
+            throw new Error('No pending animations ready to be closed or flushed');
+          }
+
+          $rootScope.$digest();
         }
       };
 
@@ -916,7 +1028,7 @@ angular.mock.dump = function(object) {
  * - `$httpBackend.when` - specifies a backend definition
  *
  *
- * # Request Expectations vs Backend Definitions
+ * ## Request Expectations vs Backend Definitions
  *
  * Request expectations provide a way to make assertions about requests made by the application and
  * to define responses for those requests. The test will fail if the expected requests are not made
@@ -972,7 +1084,7 @@ angular.mock.dump = function(object) {
  * the request. The response from the first matched definition is returned.
  *
  *
- * # Flushing HTTP requests
+ * ## Flushing HTTP requests
  *
  * The $httpBackend used in production always responds to requests asynchronously. If we preserved
  * this behavior in unit testing, we'd have to create async unit tests, which are hard to write,
@@ -982,7 +1094,7 @@ angular.mock.dump = function(object) {
  * the async api of the backend, while allowing the test to execute synchronously.
  *
  *
- * # Unit testing with mock $httpBackend
+ * ## Unit testing with mock $httpBackend
  * The following code shows how to setup and use the mock backend when unit testing a controller.
  * First we create the controller under test:
  *
@@ -996,19 +1108,19 @@ angular.mock.dump = function(object) {
   function MyController($scope, $http) {
     var authToken;
 
-    $http.get('/auth.py').success(function(data, status, headers) {
-      authToken = headers('A-Token');
-      $scope.user = data;
+    $http.get('/auth.py').then(function(response) {
+      authToken = response.headers('A-Token');
+      $scope.user = response.data;
     });
 
     $scope.saveMessage = function(message) {
       var headers = { 'Authorization': authToken };
       $scope.status = 'Saving...';
 
-      $http.post('/add-msg.py', message, { headers: headers } ).success(function(response) {
+      $http.post('/add-msg.py', message, { headers: headers } ).then(function(response) {
         $scope.status = '';
-      }).error(function() {
-        $scope.status = 'ERROR!';
+      }).catch(function() {
+        $scope.status = 'Failed...';
       });
     };
   }
@@ -1098,7 +1210,87 @@ angular.mock.dump = function(object) {
          $httpBackend.flush();
        });
     });
-   ```
+  ```
+ *
+ * ## Dynamic responses
+ *
+ * You define a response to a request by chaining a call to `respond()` onto a definition or expectation.
+ * If you provide a **callback** as the first parameter to `respond(callback)` then you can dynamically generate
+ * a response based on the properties of the request.
+ *
+ * The `callback` function should be of the form `function(method, url, data, headers, params)`.
+ *
+ * ### Query parameters
+ *
+ * By default, query parameters on request URLs are parsed into the `params` object. So a request URL
+ * of `/list?q=searchstr&orderby=-name` would set `params` to be `{q: 'searchstr', orderby: '-name'}`.
+ *
+ * ### Regex parameter matching
+ *
+ * If an expectation or definition uses a **regex** to match the URL, you can provide an array of **keys** via a
+ * `params` argument. The index of each **key** in the array will match the index of a **group** in the
+ * **regex**.
+ *
+ * The `params` object in the **callback** will now have properties with these keys, which hold the value of the
+ * corresponding **group** in the **regex**.
+ *
+ * This also applies to the `when` and `expect` shortcut methods.
+ *
+ *
+ * ```js
+ *   $httpBackend.expect('GET', /\/user\/(.+)/, undefined, undefined, ['id'])
+ *     .respond(function(method, url, data, headers, params) {
+ *       // for requested url of '/user/1234' params is {id: '1234'}
+ *     });
+ *
+ *   $httpBackend.whenPATCH(/\/user\/(.+)\/article\/(.+)/, undefined, undefined, ['user', 'article'])
+ *     .respond(function(method, url, data, headers, params) {
+ *       // for url of '/user/1234/article/567' params is {user: '1234', article: '567'}
+ *     });
+ * ```
+ *
+ * ## Matching route requests
+ *
+ * For extra convenience, `whenRoute` and `expectRoute` shortcuts are available. These methods offer colon
+ * delimited matching of the url path, ignoring the query string. This allows declarations
+ * similar to how application routes are configured with `$routeProvider`. Because these methods convert
+ * the definition url to regex, declaration order is important. Combined with query parameter parsing,
+ * the following is possible:
+ *
+  ```js
+    $httpBackend.whenRoute('GET', '/users/:id')
+      .respond(function(method, url, data, headers, params) {
+        return [200, MockUserList[Number(params.id)]];
+      });
+
+    $httpBackend.whenRoute('GET', '/users')
+      .respond(function(method, url, data, headers, params) {
+        var userList = angular.copy(MockUserList),
+          defaultSort = 'lastName',
+          count, pages, isPrevious, isNext;
+
+        // paged api response '/v1/users?page=2'
+        params.page = Number(params.page) || 1;
+
+        // query for last names '/v1/users?q=Archer'
+        if (params.q) {
+          userList = $filter('filter')({lastName: params.q});
+        }
+
+        pages = Math.ceil(userList.length / pagingLength);
+        isPrevious = params.page > 1;
+        isNext = params.page < pages;
+
+        return [200, {
+          count:    userList.length,
+          previous: isPrevious,
+          next:     isNext,
+          // sort field -> '/v1/users?sortBy=firstName'
+          results:  $filter('orderBy')(userList, params.sortBy || defaultSort)
+                      .splice((params.page - 1) * pagingLength, pagingLength)
+        }];
+      });
+  ```
  */
 angular.mock.$HttpBackendProvider = function() {
   this.$get = ['$rootScope', '$timeout', createHttpBackendMock];
@@ -1136,7 +1328,8 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
   }
 
   // TODO(vojta): change params to: method, url, data, headers, callback
-  function $httpBackend(method, url, data, callback, headers, timeout, withCredentials) {
+  function $httpBackend(method, url, data, callback, headers, timeout, withCredentials, responseType) {
+
     var xhr = new MockXhr(),
         expectation = expectations[0],
         wasExpected = false;
@@ -1155,7 +1348,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
       return handleResponse;
 
       function handleResponse() {
-        var response = wrapped.response(method, url, data, headers);
+        var response = wrapped.response(method, url, data, headers, wrapped.params(url));
         xhr.$$respHeaders = response[2];
         callback(copy(response[0]), copy(response[1]), xhr.getAllResponseHeaders(),
                  copy(response[3] || ''));
@@ -1200,7 +1393,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
           // if $browser specified, we do auto flush all requests
           ($browser ? $browser.defer : responsesPush)(wrapResponse(definition));
         } else if (definition.passThrough) {
-          $delegate(method, url, data, callback, headers, timeout, withCredentials);
+          $delegate(method, url, data, callback, headers, timeout, withCredentials, responseType);
         } else throw new Error('No response defined !');
         return;
       }
@@ -1224,20 +1417,21 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    *   data string and returns true if the data is as expected.
    * @param {(Object|function(Object))=} headers HTTP headers or function that receives http header
    *   object and returns true if the headers match the current definition.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    *   request is handled. You can save this object for later use and invoke `respond` again in
    *   order to change how a matched request is handled.
    *
    *  - respond –
    *      `{function([status,] data[, headers, statusText])
-   *      | function(function(method, url, data, headers)}`
+   *      | function(function(method, url, data, headers, params)}`
    *    – The respond method takes a set of static data to be returned or a function that can
    *    return an array containing response status (number), response data (string), response
    *    headers (Object), and the text for the status (string). The respond method returns the
    *    `requestHandler` object for possible overrides.
    */
-  $httpBackend.when = function(method, url, data, headers) {
-    var definition = new MockHttpExpectation(method, url, data, headers),
+  $httpBackend.when = function(method, url, data, headers, keys) {
+    var definition = new MockHttpExpectation(method, url, data, headers, keys),
         chain = {
           respond: function(status, data, headers, statusText) {
             definition.passThrough = undefined;
@@ -1267,6 +1461,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
    *   and returns true if the url matches the current definition.
    * @param {(Object|function(Object))=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    * request is handled. You can save this object for later use and invoke `respond` again in
    * order to change how a matched request is handled.
@@ -1281,6 +1476,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
    *   and returns true if the url matches the current definition.
    * @param {(Object|function(Object))=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    * request is handled. You can save this object for later use and invoke `respond` again in
    * order to change how a matched request is handled.
@@ -1295,6 +1491,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
    *   and returns true if the url matches the current definition.
    * @param {(Object|function(Object))=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    * request is handled. You can save this object for later use and invoke `respond` again in
    * order to change how a matched request is handled.
@@ -1311,6 +1508,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    * @param {(string|RegExp|function(string))=} data HTTP request body or function that receives
    *   data string and returns true if the data is as expected.
    * @param {(Object|function(Object))=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    * request is handled. You can save this object for later use and invoke `respond` again in
    * order to change how a matched request is handled.
@@ -1327,6 +1525,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    * @param {(string|RegExp|function(string))=} data HTTP request body or function that receives
    *   data string and returns true if the data is as expected.
    * @param {(Object|function(Object))=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    * request is handled. You can save this object for later use and invoke `respond` again in
    * order to change how a matched request is handled.
@@ -1340,12 +1539,59 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    *
    * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
    *   and returns true if the url matches the current definition.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    * request is handled. You can save this object for later use and invoke `respond` again in
    * order to change how a matched request is handled.
    */
   createShortMethods('when');
 
+  /**
+   * @ngdoc method
+   * @name $httpBackend#whenRoute
+   * @description
+   * Creates a new backend definition that compares only with the requested route.
+   *
+   * @param {string} method HTTP method.
+   * @param {string} url HTTP url string that supports colon param matching.
+   * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
+   * request is handled. You can save this object for later use and invoke `respond` again in
+   * order to change how a matched request is handled. See #when for more info.
+   */
+  $httpBackend.whenRoute = function(method, url) {
+    var pathObj = parseRoute(url);
+    return $httpBackend.when(method, pathObj.regexp, undefined, undefined, pathObj.keys);
+  };
+
+  function parseRoute(url) {
+    var ret = {
+      regexp: url
+    },
+    keys = ret.keys = [];
+
+    if (!url || !angular.isString(url)) return ret;
+
+    url = url
+      .replace(/([().])/g, '\\$1')
+      .replace(/(\/)?:(\w+)([\?\*])?/g, function(_, slash, key, option) {
+        var optional = option === '?' ? option : null;
+        var star = option === '*' ? option : null;
+        keys.push({ name: key, optional: !!optional });
+        slash = slash || '';
+        return ''
+          + (optional ? '' : slash)
+          + '(?:'
+          + (optional ? slash : '')
+          + (star && '(.+?)' || '([^/]+)')
+          + (optional || '')
+          + ')'
+          + (optional || '');
+      })
+      .replace(/([\/$\*])/g, '\\$1');
+
+    ret.regexp = new RegExp('^' + url, 'i');
+    return ret;
+  }
 
   /**
    * @ngdoc method
@@ -1361,20 +1607,21 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    *  is in JSON format.
    * @param {(Object|function(Object))=} headers HTTP headers or function that receives http header
    *   object and returns true if the headers match the current expectation.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    *  request is handled. You can save this object for later use and invoke `respond` again in
    *  order to change how a matched request is handled.
    *
    *  - respond –
    *    `{function([status,] data[, headers, statusText])
-   *    | function(function(method, url, data, headers)}`
+   *    | function(function(method, url, data, headers, params)}`
    *    – The respond method takes a set of static data to be returned or a function that can
    *    return an array containing response status (number), response data (string), response
    *    headers (Object), and the text for the status (string). The respond method returns the
    *    `requestHandler` object for possible overrides.
    */
-  $httpBackend.expect = function(method, url, data, headers) {
-    var expectation = new MockHttpExpectation(method, url, data, headers),
+  $httpBackend.expect = function(method, url, data, headers, keys) {
+    var expectation = new MockHttpExpectation(method, url, data, headers, keys),
         chain = {
           respond: function(status, data, headers, statusText) {
             expectation.response = createResponse(status, data, headers, statusText);
@@ -1386,7 +1633,6 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
     return chain;
   };
 
-
   /**
    * @ngdoc method
    * @name $httpBackend#expectGET
@@ -1396,6 +1642,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
    *   and returns true if the url matches the current definition.
    * @param {Object=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    * request is handled. You can save this object for later use and invoke `respond` again in
    * order to change how a matched request is handled. See #expect for more info.
@@ -1410,6 +1657,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
    *   and returns true if the url matches the current definition.
    * @param {Object=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    *   request is handled. You can save this object for later use and invoke `respond` again in
    *   order to change how a matched request is handled.
@@ -1424,6 +1672,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
    *   and returns true if the url matches the current definition.
    * @param {Object=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    *   request is handled. You can save this object for later use and invoke `respond` again in
    *   order to change how a matched request is handled.
@@ -1441,6 +1690,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    *  receives data string and returns true if the data is as expected, or Object if request body
    *  is in JSON format.
    * @param {Object=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    *   request is handled. You can save this object for later use and invoke `respond` again in
    *   order to change how a matched request is handled.
@@ -1458,6 +1708,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    *  receives data string and returns true if the data is as expected, or Object if request body
    *  is in JSON format.
    * @param {Object=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    *   request is handled. You can save this object for later use and invoke `respond` again in
    *   order to change how a matched request is handled.
@@ -1475,6 +1726,7 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    *  receives data string and returns true if the data is as expected, or Object if request body
    *  is in JSON format.
    * @param {Object=} headers HTTP headers.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    *   request is handled. You can save this object for later use and invoke `respond` again in
    *   order to change how a matched request is handled.
@@ -1488,11 +1740,29 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
    *
    * @param {string|RegExp|function(string)} url HTTP url or function that receives an url
    *   and returns true if the url matches the current definition.
+   * @param {(Array)=} keys Array of keys to assign to regex matches in request url described above.
    * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
    *   request is handled. You can save this object for later use and invoke `respond` again in
    *   order to change how a matched request is handled.
    */
   createShortMethods('expect');
+
+  /**
+   * @ngdoc method
+   * @name $httpBackend#expectRoute
+   * @description
+   * Creates a new request expectation that compares only with the requested route.
+   *
+   * @param {string} method HTTP method.
+   * @param {string} url HTTP url string that supports colon param matching.
+   * @returns {requestHandler} Returns an object with `respond` method that controls how a matched
+   * request is handled. You can save this object for later use and invoke `respond` again in
+   * order to change how a matched request is handled. See #expect for more info.
+   */
+  $httpBackend.expectRoute = function(method, url) {
+    var pathObj = parseRoute(url);
+    return $httpBackend.expect(method, pathObj.regexp, undefined, undefined, pathObj.keys);
+  };
 
 
   /**
@@ -1583,20 +1853,20 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
 
   function createShortMethods(prefix) {
     angular.forEach(['GET', 'DELETE', 'JSONP', 'HEAD'], function(method) {
-     $httpBackend[prefix + method] = function(url, headers) {
-       return $httpBackend[prefix](method, url, undefined, headers);
+     $httpBackend[prefix + method] = function(url, headers, keys) {
+       return $httpBackend[prefix](method, url, undefined, headers, keys);
      };
     });
 
     angular.forEach(['PUT', 'POST', 'PATCH'], function(method) {
-      $httpBackend[prefix + method] = function(url, data, headers) {
-        return $httpBackend[prefix](method, url, data, headers);
+      $httpBackend[prefix + method] = function(url, data, headers, keys) {
+        return $httpBackend[prefix](method, url, data, headers, keys);
       };
     });
   }
 }
 
-function MockHttpExpectation(method, url, data, headers) {
+function MockHttpExpectation(method, url, data, headers, keys) {
 
   this.data = data;
   this.headers = headers;
@@ -1634,6 +1904,59 @@ function MockHttpExpectation(method, url, data, headers) {
 
   this.toString = function() {
     return method + ' ' + url;
+  };
+
+  this.params = function(u) {
+    return angular.extend(parseQuery(), pathParams());
+
+    function pathParams() {
+      var keyObj = {};
+      if (!url || !angular.isFunction(url.test) || !keys || keys.length === 0) return keyObj;
+
+      var m = url.exec(u);
+      if (!m) return keyObj;
+      for (var i = 1, len = m.length; i < len; ++i) {
+        var key = keys[i - 1];
+        var val = m[i];
+        if (key && val) {
+          keyObj[key.name || key] = val;
+        }
+      }
+
+      return keyObj;
+    }
+
+    function parseQuery() {
+      var obj = {}, key_value, key,
+          queryStr = u.indexOf('?') > -1
+          ? u.substring(u.indexOf('?') + 1)
+          : "";
+
+      angular.forEach(queryStr.split('&'), function(keyValue) {
+        if (keyValue) {
+          key_value = keyValue.replace(/\+/g,'%20').split('=');
+          key = tryDecodeURIComponent(key_value[0]);
+          if (angular.isDefined(key)) {
+            var val = angular.isDefined(key_value[1]) ? tryDecodeURIComponent(key_value[1]) : true;
+            if (!hasOwnProperty.call(obj, key)) {
+              obj[key] = val;
+            } else if (angular.isArray(obj[key])) {
+              obj[key].push(val);
+            } else {
+              obj[key] = [obj[key],val];
+            }
+          }
+        }
+      });
+      return obj;
+    }
+    function tryDecodeURIComponent(value) {
+      try {
+        return decodeURIComponent(value);
+      } catch (e) {
+        // Ignore any invalid uri component
+      }
+    }
   };
 }
 
@@ -1743,28 +2066,28 @@ angular.mock.$TimeoutDecorator = ['$delegate', '$browser', function($delegate, $
 }];
 
 angular.mock.$RAFDecorator = ['$delegate', function($delegate) {
-  var queue = [];
   var rafFn = function(fn) {
-    var index = queue.length;
-    queue.push(fn);
+    var index = rafFn.queue.length;
+    rafFn.queue.push(fn);
     return function() {
-      queue.splice(index, 1);
+      rafFn.queue.splice(index, 1);
     };
   };
 
+  rafFn.queue = [];
   rafFn.supported = $delegate.supported;
 
   rafFn.flush = function() {
-    if (queue.length === 0) {
+    if (rafFn.queue.length === 0) {
       throw new Error('No rAF callbacks present');
     }
 
-    var length = queue.length;
+    var length = rafFn.queue.length;
     for (var i = 0; i < length; i++) {
-      queue[i]();
+      rafFn.queue[i]();
     }
 
-    queue = queue.slice(i);
+    rafFn.queue = rafFn.queue.slice(i);
   };
 
   return rafFn;
@@ -1773,10 +2096,12 @@ angular.mock.$RAFDecorator = ['$delegate', function($delegate) {
 /**
  *
  */
+var originalRootElement;
 angular.mock.$RootElementProvider = function() {
-  this.$get = function() {
-    return angular.element('<div ng-app></div>');
-  };
+  this.$get = ['$injector', function($injector) {
+    originalRootElement = angular.element('<div ng-app></div>').data('$injector', $injector);
+    return originalRootElement;
+  }];
 };
 
 /**
@@ -1803,19 +2128,19 @@ angular.mock.$RootElementProvider = function() {
  *
  * // Controller definition ...
  *
- * myMod.controller('MyDirectiveController', ['log', function($log) {
+ * myMod.controller('MyDirectiveController', ['$log', function($log) {
  *   $log.info(this.name);
- * })];
+ * }]);
  *
  *
  * // In a test ...
  *
  * describe('myDirectiveController', function() {
  *   it('should write the bound name to the log', inject(function($controller, $log) {
- *     var ctrl = $controller('MyDirective', { /* no locals &#42;/ }, { name: 'Clark Kent' });
+ *     var ctrl = $controller('MyDirectiveController', { /* no locals &#42;/ }, { name: 'Clark Kent' });
  *     expect(ctrl.name).toEqual('Clark Kent');
  *     expect($log.info.logs).toEqual(['Clark Kent']);
- *   });
+ *   }));
  * });
  *
  * ```
@@ -1849,6 +2174,47 @@ angular.mock.$ControllerDecorator = ['$delegate', function($delegate) {
   };
 }];
 
+/**
+ * @ngdoc service
+ * @name $componentController
+ * @description
+ * A service that can be used to create instances of component controllers.
+ * <div class="alert alert-info">
+ * Be aware that the controller will be instantiated and attached to the scope as specified in
+ * the component definition object. That means that you must always provide a `$scope` object
+ * in the `locals` param.
+ * </div>
+ * @param {string} componentName the name of the component whose controller we want to instantiate
+ * @param {Object} locals Injection locals for Controller.
+ * @param {Object=} bindings Properties to add to the controller before invoking the constructor. This is used
+ *                           to simulate the `bindToController` feature and simplify certain kinds of tests.
+ * @param {string=} ident Override the property name to use when attaching the controller to the scope.
+ * @return {Object} Instance of requested controller.
+ */
+angular.mock.$ComponentControllerProvider = ['$compileProvider', function($compileProvider) {
+  this.$get = ['$controller','$injector', function($controller,$injector) {
+    return function $componentController(componentName, locals, bindings, ident) {
+      // get all directives associated to the component name
+      var directives = $injector.get(componentName + 'Directive');
+      // look for those directives that are components
+      var candidateDirectives = directives.filter(function(directiveInfo) {
+        // components have controller, controllerAs and restrict:'E'
+        return directiveInfo.controller && directiveInfo.controllerAs && directiveInfo.restrict === 'E';
+      });
+      // check if valid directives found
+      if (candidateDirectives.length === 0) {
+        throw new Error('No component found');
+      }
+      if (candidateDirectives.length > 1) {
+        throw new Error('Too many components found');
+      }
+      // get the info of the component
+      var directiveInfo = candidateDirectives[0];
+      return $controller(directiveInfo.controller, locals, bindings, ident || directiveInfo.controllerAs);
+    };
+  }];
+}];
+
 
 /**
  * @ngdoc module
@@ -1872,7 +2238,8 @@ angular.module('ngMock', ['ng']).provider({
   $log: angular.mock.$LogProvider,
   $interval: angular.mock.$IntervalProvider,
   $httpBackend: angular.mock.$HttpBackendProvider,
-  $rootElement: angular.mock.$RootElementProvider
+  $rootElement: angular.mock.$RootElementProvider,
+  $componentController: angular.mock.$ComponentControllerProvider
 }).config(['$provide', function($provide) {
   $provide.decorator('$timeout', angular.mock.$TimeoutDecorator);
   $provide.decorator('$$rAF', angular.mock.$RAFDecorator);
@@ -1959,13 +2326,15 @@ angular.module('ngMockE2E', ['ng']).config(['$provide', function($provide) {
  * @param {(string|RegExp)=} data HTTP request body.
  * @param {(Object|function(Object))=} headers HTTP headers or function that receives http header
  *   object and returns true if the headers match the current definition.
+ * @param {(Array)=} keys Array of keys to assign to regex matches in request url described on
+ *   {@link ngMock.$httpBackend $httpBackend mock}.
  * @returns {requestHandler} Returns an object with `respond` and `passThrough` methods that
  *   control how a matched request is handled. You can save this object for later use and invoke
  *   `respond` or `passThrough` again in order to change how a matched request is handled.
  *
  *  - respond –
  *    `{function([status,] data[, headers, statusText])
- *    | function(function(method, url, data, headers)}`
+ *    | function(function(method, url, data, headers, params)}`
  *    – The respond method takes a set of static data to be returned or a function that can return
  *    an array containing response status (number), response data (string), response headers
  *    (Object), and the text for the status (string).
@@ -1985,6 +2354,8 @@ angular.module('ngMockE2E', ['ng']).config(['$provide', function($provide) {
  * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
  *   and returns true if the url matches the current definition.
  * @param {(Object|function(Object))=} headers HTTP headers.
+ * @param {(Array)=} keys Array of keys to assign to regex matches in request url described on
+ *   {@link ngMock.$httpBackend $httpBackend mock}.
  * @returns {requestHandler} Returns an object with `respond` and `passThrough` methods that
  *   control how a matched request is handled. You can save this object for later use and invoke
  *   `respond` or `passThrough` again in order to change how a matched request is handled.
@@ -2000,6 +2371,8 @@ angular.module('ngMockE2E', ['ng']).config(['$provide', function($provide) {
  * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
  *   and returns true if the url matches the current definition.
  * @param {(Object|function(Object))=} headers HTTP headers.
+ * @param {(Array)=} keys Array of keys to assign to regex matches in request url described on
+ *   {@link ngMock.$httpBackend $httpBackend mock}.
  * @returns {requestHandler} Returns an object with `respond` and `passThrough` methods that
  *   control how a matched request is handled. You can save this object for later use and invoke
  *   `respond` or `passThrough` again in order to change how a matched request is handled.
@@ -2015,6 +2388,8 @@ angular.module('ngMockE2E', ['ng']).config(['$provide', function($provide) {
  * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
  *   and returns true if the url matches the current definition.
  * @param {(Object|function(Object))=} headers HTTP headers.
+ * @param {(Array)=} keys Array of keys to assign to regex matches in request url described on
+ *   {@link ngMock.$httpBackend $httpBackend mock}.
  * @returns {requestHandler} Returns an object with `respond` and `passThrough` methods that
  *   control how a matched request is handled. You can save this object for later use and invoke
  *   `respond` or `passThrough` again in order to change how a matched request is handled.
@@ -2031,6 +2406,8 @@ angular.module('ngMockE2E', ['ng']).config(['$provide', function($provide) {
  *   and returns true if the url matches the current definition.
  * @param {(string|RegExp)=} data HTTP request body.
  * @param {(Object|function(Object))=} headers HTTP headers.
+ * @param {(Array)=} keys Array of keys to assign to regex matches in request url described on
+ *   {@link ngMock.$httpBackend $httpBackend mock}.
  * @returns {requestHandler} Returns an object with `respond` and `passThrough` methods that
  *   control how a matched request is handled. You can save this object for later use and invoke
  *   `respond` or `passThrough` again in order to change how a matched request is handled.
@@ -2047,6 +2424,8 @@ angular.module('ngMockE2E', ['ng']).config(['$provide', function($provide) {
  *   and returns true if the url matches the current definition.
  * @param {(string|RegExp)=} data HTTP request body.
  * @param {(Object|function(Object))=} headers HTTP headers.
+ * @param {(Array)=} keys Array of keys to assign to regex matches in request url described on
+ *   {@link ngMock.$httpBackend $httpBackend mock}.
  * @returns {requestHandler} Returns an object with `respond` and `passThrough` methods that
  *   control how a matched request is handled. You can save this object for later use and invoke
  *   `respond` or `passThrough` again in order to change how a matched request is handled.
@@ -2063,6 +2442,8 @@ angular.module('ngMockE2E', ['ng']).config(['$provide', function($provide) {
  *   and returns true if the url matches the current definition.
  * @param {(string|RegExp)=} data HTTP request body.
  * @param {(Object|function(Object))=} headers HTTP headers.
+ * @param {(Array)=} keys Array of keys to assign to regex matches in request url described on
+ *   {@link ngMock.$httpBackend $httpBackend mock}.
  * @returns {requestHandler} Returns an object with `respond` and `passThrough` methods that
  *   control how a matched request is handled. You can save this object for later use and invoke
  *   `respond` or `passThrough` again in order to change how a matched request is handled.
@@ -2077,6 +2458,21 @@ angular.module('ngMockE2E', ['ng']).config(['$provide', function($provide) {
  *
  * @param {string|RegExp|function(string)} url HTTP url or function that receives a url
  *   and returns true if the url matches the current definition.
+ * @param {(Array)=} keys Array of keys to assign to regex matches in request url described on
+ *   {@link ngMock.$httpBackend $httpBackend mock}.
+ * @returns {requestHandler} Returns an object with `respond` and `passThrough` methods that
+ *   control how a matched request is handled. You can save this object for later use and invoke
+ *   `respond` or `passThrough` again in order to change how a matched request is handled.
+ */
+/**
+ * @ngdoc method
+ * @name $httpBackend#whenRoute
+ * @module ngMockE2E
+ * @description
+ * Creates a new backend definition that compares only with the requested route.
+ *
+ * @param {string} method HTTP method.
+ * @param {string} url HTTP url string that supports colon param matching.
  * @returns {requestHandler} Returns an object with `respond` and `passThrough` methods that
  *   control how a matched request is handled. You can save this object for later use and invoke
  *   `respond` or `passThrough` again in order to change how a matched request is handled.
@@ -2172,11 +2568,16 @@ angular.mock.$RootScopeDecorator = ['$delegate', function($delegate) {
 }];
 
 
-if (window.jasmine || window.mocha) {
+!(function(jasmineOrMocha) {
+
+  if (!jasmineOrMocha) {
+    return;
+  }
 
   var currentSpec = null,
+      injectorState = new InjectorState(),
       annotatedFunctions = [],
-      isSpecRunning = function() {
+      wasInjectorCreated = function() {
         return !!currentSpec;
       };
 
@@ -2187,46 +2588,6 @@ if (window.jasmine || window.mocha) {
     }
     return angular.mock.$$annotate.apply(this, arguments);
   };
-
-
-  (window.beforeEach || window.setup)(function() {
-    annotatedFunctions = [];
-    currentSpec = this;
-  });
-
-  (window.afterEach || window.teardown)(function() {
-    var injector = currentSpec.$injector;
-
-    annotatedFunctions.forEach(function(fn) {
-      delete fn.$inject;
-    });
-
-    angular.forEach(currentSpec.$modules, function(module) {
-      if (module && module.$$hashKey) {
-        module.$$hashKey = undefined;
-      }
-    });
-
-    currentSpec.$injector = null;
-    currentSpec.$modules = null;
-    currentSpec = null;
-
-    if (injector) {
-      injector.get('$rootElement').off();
-    }
-
-    // clean up jquery's fragment cache
-    angular.forEach(angular.element.fragments, function(val, key) {
-      delete angular.element.fragments[key];
-    });
-
-    MockXhr.$$lastInstance = null;
-
-    angular.forEach(angular.callbacks, function(val, key) {
-      delete angular.callbacks[key];
-    });
-    angular.callbacks.counter = 0;
-  });
 
   /**
    * @ngdoc function
@@ -2244,32 +2605,197 @@ if (window.jasmine || window.mocha) {
    * @param {...(string|Function|Object)} fns any number of modules which are represented as string
    *        aliases or as anonymous module initialization functions. The modules are used to
    *        configure the injector. The 'ng' and 'ngMock' modules are automatically loaded. If an
-   *        object literal is passed they will be registered as values in the module, the key being
-   *        the module name and the value being what is returned.
+   *        object literal is passed each key-value pair will be registered on the module via
+   *        {@link auto.$provide $provide}.value, the key being the string name (or token) to associate
+   *        with the value on the injector.
    */
-  window.module = angular.mock.module = function() {
+  var module = window.module = angular.mock.module = function() {
     var moduleFns = Array.prototype.slice.call(arguments, 0);
-    return isSpecRunning() ? workFn() : workFn;
+    return wasInjectorCreated() ? workFn() : workFn;
     /////////////////////
     function workFn() {
       if (currentSpec.$injector) {
         throw new Error('Injector already created, can not register a module!');
       } else {
-        var modules = currentSpec.$modules || (currentSpec.$modules = []);
+        var fn, modules = currentSpec.$modules || (currentSpec.$modules = []);
         angular.forEach(moduleFns, function(module) {
           if (angular.isObject(module) && !angular.isArray(module)) {
-            modules.push(function($provide) {
+            fn = ['$provide', function($provide) {
               angular.forEach(module, function(value, key) {
                 $provide.value(key, value);
               });
-            });
+            }];
           } else {
-            modules.push(module);
+            fn = module;
+          }
+          if (currentSpec.$providerInjector) {
+            currentSpec.$providerInjector.invoke(fn);
+          } else {
+            modules.push(fn);
           }
         });
       }
     }
   };
+
+  module.$$beforeAllHook = (window.before || window.beforeAll);
+  module.$$afterAllHook = (window.after || window.afterAll);
+
+  // purely for testing ngMock itself
+  module.$$currentSpec = function(to) {
+    if (arguments.length === 0) return to;
+    currentSpec = to;
+  };
+
+  /**
+   * @ngdoc function
+   * @name angular.mock.module.sharedInjector
+   * @description
+   *
+   * *NOTE*: This function is declared ONLY WHEN running tests with jasmine or mocha
+   *
+   * This function ensures a single injector will be used for all tests in a given describe context.
+   * This contrasts with the default behaviour where a new injector is created per test case.
+   *
+   * Use sharedInjector when you want to take advantage of Jasmine's `beforeAll()`, or mocha's
+   * `before()` methods. Call `module.sharedInjector()` before you setup any other hooks that
+   * will create (i.e call `module()`) or use (i.e call `inject()`) the injector.
+   *
+   * You cannot call `sharedInjector()` from within a context already using `sharedInjector()`.
+   *
+   * ## Example
+   *
+   * Typically beforeAll is used to make many assertions about a single operation. This can
+   * cut down test run-time as the test setup doesn't need to be re-run, and enabling focussed
+   * tests each with a single assertion.
+   *
+   * ```js
+   * describe("Deep Thought", function() {
+   *
+   *   module.sharedInjector();
+   *
+   *   beforeAll(module("UltimateQuestion"));
+   *
+   *   beforeAll(inject(function(DeepThought) {
+   *     expect(DeepThought.answer).toBeUndefined();
+   *     DeepThought.generateAnswer();
+   *   }));
+   *
+   *   it("has calculated the answer correctly", inject(function(DeepThought) {
+   *     // Because of sharedInjector, we have access to the instance of the DeepThought service
+   *     // that was provided to the beforeAll() hook. Therefore we can test the generated answer
+   *     expect(DeepThought.answer).toBe(42);
+   *   }));
+   *
+   *   it("has calculated the answer within the expected time", inject(function(DeepThought) {
+   *     expect(DeepThought.runTimeMillennia).toBeLessThan(8000);
+   *   }));
+   *
+   *   it("has double checked the answer", inject(function(DeepThought) {
+   *     expect(DeepThought.absolutelySureItIsTheRightAnswer).toBe(true);
+   *   }));
+   *
+   * });
+   *
+   * ```
+   */
+  module.sharedInjector = function() {
+    if (!(module.$$beforeAllHook && module.$$afterAllHook)) {
+      throw Error("sharedInjector() cannot be used unless your test runner defines beforeAll/afterAll");
+    }
+
+    var initialized = false;
+
+    module.$$beforeAllHook(function() {
+      if (injectorState.shared) {
+        injectorState.sharedError = Error("sharedInjector() cannot be called inside a context that has already called sharedInjector()");
+        throw injectorState.sharedError;
+      }
+      initialized = true;
+      currentSpec = this;
+      injectorState.shared = true;
+    });
+
+    module.$$afterAllHook(function() {
+      if (initialized) {
+        injectorState = new InjectorState();
+        module.$$cleanup();
+      } else {
+        injectorState.sharedError = null;
+      }
+    });
+  };
+
+  module.$$beforeEach = function() {
+    if (injectorState.shared && currentSpec && currentSpec != this) {
+      var state = currentSpec;
+      currentSpec = this;
+      angular.forEach(["$injector","$modules","$providerInjector", "$injectorStrict"], function(k) {
+        currentSpec[k] = state[k];
+        state[k] = null;
+      });
+    } else {
+      currentSpec = this;
+      originalRootElement = null;
+      annotatedFunctions = [];
+    }
+  };
+
+  module.$$afterEach = function() {
+    if (injectorState.cleanupAfterEach()) {
+      module.$$cleanup();
+    }
+  };
+
+  module.$$cleanup = function() {
+    var injector = currentSpec.$injector;
+
+    annotatedFunctions.forEach(function(fn) {
+      delete fn.$inject;
+    });
+
+    angular.forEach(currentSpec.$modules, function(module) {
+      if (module && module.$$hashKey) {
+        module.$$hashKey = undefined;
+      }
+    });
+
+    currentSpec.$injector = null;
+    currentSpec.$modules = null;
+    currentSpec.$providerInjector = null;
+    currentSpec = null;
+
+    if (injector) {
+      // Ensure `$rootElement` is instantiated, before checking `originalRootElement`
+      var $rootElement = injector.get('$rootElement');
+      var rootNode = $rootElement && $rootElement[0];
+      var cleanUpNodes = !originalRootElement ? [] : [originalRootElement[0]];
+      if (rootNode && (!originalRootElement || rootNode !== originalRootElement[0])) {
+        cleanUpNodes.push(rootNode);
+      }
+      angular.element.cleanData(cleanUpNodes);
+
+      // Ensure `$destroy()` is available, before calling it
+      // (a mocked `$rootScope` might not implement it (or not even be an object at all))
+      var $rootScope = injector.get('$rootScope');
+      if ($rootScope && $rootScope.$destroy) $rootScope.$destroy();
+    }
+
+    // clean up jquery's fragment cache
+    angular.forEach(angular.element.fragments, function(val, key) {
+      delete angular.element.fragments[key];
+    });
+
+    MockXhr.$$lastInstance = null;
+
+    angular.forEach(angular.callbacks, function(val, key) {
+      delete angular.callbacks[key];
+    });
+    angular.callbacks.counter = 0;
+  };
+
+  (window.beforeEach || window.setup)(module.$$beforeEach);
+  (window.afterEach || window.teardown)(module.$$afterEach);
 
   /**
    * @ngdoc function
@@ -2373,11 +2899,14 @@ if (window.jasmine || window.mocha) {
   window.inject = angular.mock.inject = function() {
     var blockFns = Array.prototype.slice.call(arguments, 0);
     var errorForStack = new Error('Declaration Location');
-    return isSpecRunning() ? workFn.call(currentSpec) : workFn;
+    return wasInjectorCreated() ? workFn.call(currentSpec) : workFn;
     /////////////////////
     function workFn() {
       var modules = currentSpec.$modules || [];
       var strictDi = !!currentSpec.$injectorStrict;
+      modules.unshift(['$injector', function($injector) {
+        currentSpec.$providerInjector = $injector;
+      }]);
       modules.unshift('ngMock');
       modules.unshift('ng');
       var injector = currentSpec.$injector;
@@ -2418,7 +2947,7 @@ if (window.jasmine || window.mocha) {
 
   angular.mock.inject.strictDi = function(value) {
     value = arguments.length ? !!value : true;
-    return isSpecRunning() ? workFn() : workFn;
+    return wasInjectorCreated() ? workFn() : workFn;
 
     function workFn() {
       if (value !== currentSpec.$injectorStrict) {
@@ -2430,14 +2959,23 @@ if (window.jasmine || window.mocha) {
       }
     }
   };
-}
+
+  function InjectorState() {
+    this.shared = false;
+    this.sharedError = null;
+
+    this.cleanupAfterEach = function() {
+      return !this.shared || this.sharedError;
+    };
+  }
+})(window.jasmine || window.mocha);
 
 
 })(window, window.angular);
 
 /**
- * @license AngularJS v1.4.3
- * (c) 2010-2015 Google, Inc. http://angularjs.org
+ * @license AngularJS v1.5.3
+ * (c) 2010-2016 Google, Inc. http://angularjs.org
  * License: MIT
  */
 (function(window, angular, undefined) {'use strict';
@@ -2470,36 +3008,23 @@ var $sanitizeMinErr = angular.$$minErr('$sanitize');
  * See {@link ngSanitize.$sanitize `$sanitize`} for usage.
  */
 
-/*
- * HTML Parser By Misko Hevery (misko@hevery.com)
- * based on:  HTML Parser By John Resig (ejohn.org)
- * Original code by Erik Arvidsson, Mozilla Public License
- * http://erik.eae.net/simplehtmlparser/simplehtmlparser.js
- *
- * // Use like so:
- * htmlParser(htmlString, {
- *     start: function(tag, attrs, unary) {},
- *     end: function(tag) {},
- *     chars: function(text) {},
- *     comment: function(text) {}
- * });
- *
- */
-
-
 /**
  * @ngdoc service
  * @name $sanitize
  * @kind function
  *
  * @description
+ *   Sanitizes an html string by stripping all potentially dangerous tokens.
+ *
  *   The input is sanitized by parsing the HTML into tokens. All safe tokens (from a whitelist) are
  *   then serialized back to properly escaped html string. This means that no unsafe input can make
- *   it into the returned string, however, since our parser is more strict than a typical browser
- *   parser, it's possible that some obscure input, which would be recognized as valid HTML by a
- *   browser, won't make it through the sanitizer. The input may also contain SVG markup.
- *   The whitelist is configured using the functions `aHrefSanitizationWhitelist` and
- *   `imgSrcSanitizationWhitelist` of {@link ng.$compileProvider `$compileProvider`}.
+ *   it into the returned string.
+ *
+ *   The whitelist for URL sanitization of attribute values is configured using the functions
+ *   `aHrefSanitizationWhitelist` and `imgSrcSanitizationWhitelist` of {@link ng.$compileProvider
+ *   `$compileProvider`}.
+ *
+ *   The input may also contain SVG markup if this is enabled via {@link $sanitizeProvider}.
  *
  * @param {string} html HTML input.
  * @returns {string} Sanitized HTML.
@@ -2585,16 +3110,70 @@ var $sanitizeMinErr = angular.$$minErr('$sanitize');
    </file>
    </example>
  */
+
+
+/**
+ * @ngdoc provider
+ * @name $sanitizeProvider
+ *
+ * @description
+ * Creates and configures {@link $sanitize} instance.
+ */
 function $SanitizeProvider() {
+  var svgEnabled = false;
+
   this.$get = ['$$sanitizeUri', function($$sanitizeUri) {
+    if (svgEnabled) {
+      angular.extend(validElements, svgElements);
+    }
     return function(html) {
       var buf = [];
       htmlParser(html, htmlSanitizeWriter(buf, function(uri, isImage) {
-        return !/^unsafe/.test($$sanitizeUri(uri, isImage));
+        return !/^unsafe:/.test($$sanitizeUri(uri, isImage));
       }));
       return buf.join('');
     };
   }];
+
+
+  /**
+   * @ngdoc method
+   * @name $sanitizeProvider#enableSvg
+   * @kind function
+   *
+   * @description
+   * Enables a subset of svg to be supported by the sanitizer.
+   *
+   * <div class="alert alert-warning">
+   *   <p>By enabling this setting without taking other precautions, you might expose your
+   *   application to click-hijacking attacks. In these attacks, sanitized svg elements could be positioned
+   *   outside of the containing element and be rendered over other elements on the page (e.g. a login
+   *   link). Such behavior can then result in phishing incidents.</p>
+   *
+   *   <p>To protect against these, explicitly setup `overflow: hidden` css rule for all potential svg
+   *   tags within the sanitized content:</p>
+   *
+   *   <br>
+   *
+   *   <pre><code>
+   *   .rootOfTheIncludedContent svg {
+   *     overflow: hidden !important;
+   *   }
+   *   </code></pre>
+   * </div>
+   *
+   * @param {boolean=} regexp New regexp to whitelist urls with.
+   * @returns {boolean|ng.$sanitizeProvider} Returns the currently configured value if called
+   *    without an argument or self for chaining otherwise.
+   */
+  this.enableSvg = function(enableSvg) {
+    if (angular.isDefined(enableSvg)) {
+      svgEnabled = enableSvg;
+      return this;
+    } else {
+      return svgEnabled;
+    }
+  };
 }
 
 function sanitizeText(chars) {
@@ -2606,18 +3185,9 @@ function sanitizeText(chars) {
 
 
 // Regular Expressions for parsing tags and attributes
-var START_TAG_REGEXP =
-       /^<((?:[a-zA-Z])[\w:-]*)((?:\s+[\w:-]+(?:\s*=\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)\s*(>?)/,
-  END_TAG_REGEXP = /^<\/\s*([\w:-]+)[^>]*>/,
-  ATTR_REGEXP = /([\w:-]+)(?:\s*=\s*(?:(?:"((?:[^"])*)")|(?:'((?:[^'])*)')|([^>\s]+)))?/g,
-  BEGIN_TAG_REGEXP = /^</,
-  BEGING_END_TAGE_REGEXP = /^<\//,
-  COMMENT_REGEXP = /<!--(.*?)-->/g,
-  DOCTYPE_REGEXP = /<!DOCTYPE([^>]*?)>/i,
-  CDATA_REGEXP = /<!\[CDATA\[(.*?)]]>/g,
-  SURROGATE_PAIR_REGEXP = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
+var SURROGATE_PAIR_REGEXP = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
   // Match everything outside of normal chars and " (quote character)
-  NON_ALPHANUMERIC_REGEXP = /([^\#-~| |!])/g;
+  NON_ALPHANUMERIC_REGEXP = /([^\#-~ |!])/g;
 
 
 // Good source of info about elements and attributes
@@ -2626,23 +3196,23 @@ var START_TAG_REGEXP =
 
 // Safe Void Elements - HTML5
 // http://dev.w3.org/html5/spec/Overview.html#void-elements
-var voidElements = makeMap("area,br,col,hr,img,wbr");
+var voidElements = toMap("area,br,col,hr,img,wbr");
 
 // Elements that you can, intentionally, leave open (and which close themselves)
 // http://dev.w3.org/html5/spec/Overview.html#optional-tags
-var optionalEndTagBlockElements = makeMap("colgroup,dd,dt,li,p,tbody,td,tfoot,th,thead,tr"),
-    optionalEndTagInlineElements = makeMap("rp,rt"),
+var optionalEndTagBlockElements = toMap("colgroup,dd,dt,li,p,tbody,td,tfoot,th,thead,tr"),
+    optionalEndTagInlineElements = toMap("rp,rt"),
     optionalEndTagElements = angular.extend({},
                                             optionalEndTagInlineElements,
                                             optionalEndTagBlockElements);
 
 // Safe Block Elements - HTML5
-var blockElements = angular.extend({}, optionalEndTagBlockElements, makeMap("address,article," +
+var blockElements = angular.extend({}, optionalEndTagBlockElements, toMap("address,article," +
         "aside,blockquote,caption,center,del,dir,div,dl,figure,figcaption,footer,h1,h2,h3,h4,h5," +
-        "h6,header,hgroup,hr,ins,map,menu,nav,ol,pre,script,section,table,ul"));
+        "h6,header,hgroup,hr,ins,map,menu,nav,ol,pre,section,table,ul"));
 
 // Inline Elements - HTML5
-var inlineElements = angular.extend({}, optionalEndTagInlineElements, makeMap("a,abbr,acronym,b," +
+var inlineElements = angular.extend({}, optionalEndTagInlineElements, toMap("a,abbr,acronym,b," +
         "bdi,bdo,big,br,cite,code,del,dfn,em,font,i,img,ins,kbd,label,map,mark,q,ruby,rp,rt,s," +
         "samp,small,span,strike,strong,sub,sup,time,tt,u,var"));
 
@@ -2650,24 +3220,23 @@ var inlineElements = angular.extend({}, optionalEndTagInlineElements, makeMap("a
 // https://wiki.whatwg.org/wiki/Sanitization_rules#svg_Elements
 // Note: the elements animate,animateColor,animateMotion,animateTransform,set are intentionally omitted.
 // They can potentially allow for arbitrary javascript to be executed. See #11290
-var svgElements = makeMap("circle,defs,desc,ellipse,font-face,font-face-name,font-face-src,g,glyph," +
+var svgElements = toMap("circle,defs,desc,ellipse,font-face,font-face-name,font-face-src,g,glyph," +
         "hkern,image,linearGradient,line,marker,metadata,missing-glyph,mpath,path,polygon,polyline," +
-        "radialGradient,rect,stop,svg,switch,text,title,tspan,use");
+        "radialGradient,rect,stop,svg,switch,text,title,tspan");
 
-// Special Elements (can contain anything)
-var specialElements = makeMap("script,style");
+// Blocked Elements (will be stripped)
+var blockedElements = toMap("script,style");
 
 var validElements = angular.extend({},
                                    voidElements,
                                    blockElements,
                                    inlineElements,
-                                   optionalEndTagElements,
-                                   svgElements);
+                                   optionalEndTagElements);
 
 //Attributes that have href and hence need to be sanitized
-var uriAttrs = makeMap("background,cite,href,longdesc,src,usemap,xlink:href");
+var uriAttrs = toMap("background,cite,href,longdesc,src,xlink:href");
 
-var htmlAttrs = makeMap('abbr,align,alt,axis,bgcolor,border,cellpadding,cellspacing,class,clear,' +
+var htmlAttrs = toMap('abbr,align,alt,axis,bgcolor,border,cellpadding,cellspacing,class,clear,' +
     'color,cols,colspan,compact,coords,dir,face,headers,height,hreflang,hspace,' +
     'ismap,lang,language,nohref,nowrap,rel,rev,rows,rowspan,rules,' +
     'scope,scrolling,shape,size,span,start,summary,tabindex,target,title,type,' +
@@ -2675,7 +3244,7 @@ var htmlAttrs = makeMap('abbr,align,alt,axis,bgcolor,border,cellpadding,cellspac
 
 // SVG attributes (without "id" and "name" attributes)
 // https://wiki.whatwg.org/wiki/Sanitization_rules#svg_Attributes
-var svgAttrs = makeMap('accent-height,accumulate,additive,alphabetic,arabic-form,ascent,' +
+var svgAttrs = toMap('accent-height,accumulate,additive,alphabetic,arabic-form,ascent,' +
     'baseProfile,bbox,begin,by,calcMode,cap-height,class,color,color-rendering,content,' +
     'cx,cy,d,dx,dy,descent,display,dur,end,fill,fill-rule,font-family,font-size,font-stretch,' +
     'font-style,font-variant,font-weight,from,fx,fy,g1,g2,glyph-name,gradientUnits,hanging,' +
@@ -2696,7 +3265,7 @@ var validAttrs = angular.extend({},
                                 svgAttrs,
                                 htmlAttrs);
 
-function makeMap(str, lowercaseKeys) {
+function toMap(str, lowercaseKeys) {
   var obj = {}, items = str.split(','), i;
   for (i = 0; i < items.length; i++) {
     obj[lowercaseKeys ? angular.lowercase(items[i]) : items[i]] = true;
@@ -2704,11 +3273,32 @@ function makeMap(str, lowercaseKeys) {
   return obj;
 }
 
+var inertBodyElement;
+(function(window) {
+  var doc;
+  if (window.document && window.document.implementation) {
+    doc = window.document.implementation.createHTMLDocument("inert");
+  } else {
+    throw $sanitizeMinErr('noinert', "Can't create an inert html document");
+  }
+  var docElement = doc.documentElement || doc.getDocumentElement();
+  var bodyElements = docElement.getElementsByTagName('body');
+
+  // usually there should be only one body element in the document, but IE doesn't have any, so we need to create one
+  if (bodyElements.length === 1) {
+    inertBodyElement = bodyElements[0];
+  } else {
+    var html = doc.createElement('html');
+    inertBodyElement = doc.createElement('body');
+    html.appendChild(inertBodyElement);
+    doc.appendChild(html);
+  }
+})(window);
 
 /**
  * @example
  * htmlParser(htmlString, {
- *     start: function(tag, attrs, unary) {},
+ *     start: function(tag, attrs) {},
  *     end: function(tag) {},
  *     chars: function(text) {},
  *     comment: function(text) {}
@@ -2718,169 +3308,74 @@ function makeMap(str, lowercaseKeys) {
  * @param {object} handler
  */
 function htmlParser(html, handler) {
-  if (typeof html !== 'string') {
-    if (html === null || typeof html === 'undefined') {
-      html = '';
-    } else {
-      html = '' + html;
-    }
+  if (html === null || html === undefined) {
+    html = '';
+  } else if (typeof html !== 'string') {
+    html = '' + html;
   }
-  var index, chars, match, stack = [], last = html, text;
-  stack.last = function() { return stack[stack.length - 1]; };
+  inertBodyElement.innerHTML = html;
 
-  while (html) {
-    text = '';
-    chars = true;
+  //mXSS protection
+  var mXSSAttempts = 5;
+  do {
+    if (mXSSAttempts === 0) {
+      throw $sanitizeMinErr('uinput', "Failed to sanitize html because the input is unstable");
+    }
+    mXSSAttempts--;
 
-    // Make sure we're not in a script or style element
-    if (!stack.last() || !specialElements[stack.last()]) {
+    // strip custom-namespaced attributes on IE<=11
+    if (document.documentMode <= 11) {
+      stripCustomNsAttrs(inertBodyElement);
+    }
+    html = inertBodyElement.innerHTML; //trigger mXSS
+    inertBodyElement.innerHTML = html;
+  } while (html !== inertBodyElement.innerHTML);
 
-      // Comment
-      if (html.indexOf("<!--") === 0) {
-        // comments containing -- are not allowed unless they terminate the comment
-        index = html.indexOf("--", 4);
+  var node = inertBodyElement.firstChild;
+  while (node) {
+    switch (node.nodeType) {
+      case 1: // ELEMENT_NODE
+        handler.start(node.nodeName.toLowerCase(), attrToMap(node.attributes));
+        break;
+      case 3: // TEXT NODE
+        handler.chars(node.textContent);
+        break;
+    }
 
-        if (index >= 0 && html.lastIndexOf("-->", index) === index) {
-          if (handler.comment) handler.comment(html.substring(4, index));
-          html = html.substring(index + 3);
-          chars = false;
-        }
-      // DOCTYPE
-      } else if (DOCTYPE_REGEXP.test(html)) {
-        match = html.match(DOCTYPE_REGEXP);
-
-        if (match) {
-          html = html.replace(match[0], '');
-          chars = false;
-        }
-      // end tag
-      } else if (BEGING_END_TAGE_REGEXP.test(html)) {
-        match = html.match(END_TAG_REGEXP);
-
-        if (match) {
-          html = html.substring(match[0].length);
-          match[0].replace(END_TAG_REGEXP, parseEndTag);
-          chars = false;
-        }
-
-      // start tag
-      } else if (BEGIN_TAG_REGEXP.test(html)) {
-        match = html.match(START_TAG_REGEXP);
-
-        if (match) {
-          // We only have a valid start-tag if there is a '>'.
-          if (match[4]) {
-            html = html.substring(match[0].length);
-            match[0].replace(START_TAG_REGEXP, parseStartTag);
+    var nextNode;
+    if (!(nextNode = node.firstChild)) {
+      if (node.nodeType == 1) {
+        handler.end(node.nodeName.toLowerCase());
+      }
+      nextNode = node.nextSibling;
+      if (!nextNode) {
+        while (nextNode == null) {
+          node = node.parentNode;
+          if (node === inertBodyElement) break;
+          nextNode = node.nextSibling;
+          if (node.nodeType == 1) {
+            handler.end(node.nodeName.toLowerCase());
           }
-          chars = false;
-        } else {
-          // no ending tag found --- this piece should be encoded as an entity.
-          text += '<';
-          html = html.substring(1);
         }
       }
-
-      if (chars) {
-        index = html.indexOf("<");
-
-        text += index < 0 ? html : html.substring(0, index);
-        html = index < 0 ? "" : html.substring(index);
-
-        if (handler.chars) handler.chars(decodeEntities(text));
-      }
-
-    } else {
-      // IE versions 9 and 10 do not understand the regex '[^]', so using a workaround with [\W\w].
-      html = html.replace(new RegExp("([\\W\\w]*)<\\s*\\/\\s*" + stack.last() + "[^>]*>", 'i'),
-        function(all, text) {
-          text = text.replace(COMMENT_REGEXP, "$1").replace(CDATA_REGEXP, "$1");
-
-          if (handler.chars) handler.chars(decodeEntities(text));
-
-          return "";
-      });
-
-      parseEndTag("", stack.last());
     }
-
-    if (html == last) {
-      throw $sanitizeMinErr('badparse', "The sanitizer was unable to parse the following block " +
-                                        "of html: {0}", html);
-    }
-    last = html;
+    node = nextNode;
   }
 
-  // Clean up any remaining tags
-  parseEndTag();
-
-  function parseStartTag(tag, tagName, rest, unary) {
-    tagName = angular.lowercase(tagName);
-    if (blockElements[tagName]) {
-      while (stack.last() && inlineElements[stack.last()]) {
-        parseEndTag("", stack.last());
-      }
-    }
-
-    if (optionalEndTagElements[tagName] && stack.last() == tagName) {
-      parseEndTag("", tagName);
-    }
-
-    unary = voidElements[tagName] || !!unary;
-
-    if (!unary) {
-      stack.push(tagName);
-    }
-
-    var attrs = {};
-
-    rest.replace(ATTR_REGEXP,
-      function(match, name, doubleQuotedValue, singleQuotedValue, unquotedValue) {
-        var value = doubleQuotedValue
-          || singleQuotedValue
-          || unquotedValue
-          || '';
-
-        attrs[name] = decodeEntities(value);
-    });
-    if (handler.start) handler.start(tagName, attrs, unary);
-  }
-
-  function parseEndTag(tag, tagName) {
-    var pos = 0, i;
-    tagName = angular.lowercase(tagName);
-    if (tagName) {
-      // Find the closest opened tag of the same type
-      for (pos = stack.length - 1; pos >= 0; pos--) {
-        if (stack[pos] == tagName) break;
-      }
-    }
-
-    if (pos >= 0) {
-      // Close all the open elements, up the stack
-      for (i = stack.length - 1; i >= pos; i--)
-        if (handler.end) handler.end(stack[i]);
-
-      // Remove the open elements from the stack
-      stack.length = pos;
-    }
+  while (node = inertBodyElement.firstChild) {
+    inertBodyElement.removeChild(node);
   }
 }
 
-var hiddenPre=document.createElement("pre");
-/**
- * decodes all entities into regular string
- * @param value
- * @returns {string} A string with decoded entities.
- */
-function decodeEntities(value) {
-  if (!value) { return ''; }
-
-  hiddenPre.innerHTML = value.replace(/</g,"&lt;");
-  // innerText depends on styling as it doesn't display hidden elements.
-  // Therefore, it's better to use textContent not to cause unnecessary reflows.
-  return hiddenPre.textContent;
+function attrToMap(attrs) {
+  var map = {};
+  for (var i = 0, ii = attrs.length; i < ii; i++) {
+    var attr = attrs[i];
+    map[attr.name] = attr.value;
+  }
+  return map;
 }
+
 
 /**
  * Escapes all potentially dangerous characters, so that the
@@ -2906,24 +3401,24 @@ function encodeEntities(value) {
 
 /**
  * create an HTML/XML writer which writes to buffer
- * @param {Array} buf use buf.jain('') to get out sanitized html string
+ * @param {Array} buf use buf.join('') to get out sanitized html string
  * @returns {object} in the form of {
- *     start: function(tag, attrs, unary) {},
+ *     start: function(tag, attrs) {},
  *     end: function(tag) {},
  *     chars: function(text) {},
  *     comment: function(text) {}
  * }
  */
 function htmlSanitizeWriter(buf, uriValidator) {
-  var ignore = false;
+  var ignoreCurrentElement = false;
   var out = angular.bind(buf, buf.push);
   return {
-    start: function(tag, attrs, unary) {
+    start: function(tag, attrs) {
       tag = angular.lowercase(tag);
-      if (!ignore && specialElements[tag]) {
-        ignore = tag;
+      if (!ignoreCurrentElement && blockedElements[tag]) {
+        ignoreCurrentElement = tag;
       }
-      if (!ignore && validElements[tag] === true) {
+      if (!ignoreCurrentElement && validElements[tag] === true) {
         out('<');
         out(tag);
         angular.forEach(attrs, function(value, key) {
@@ -2938,27 +3433,61 @@ function htmlSanitizeWriter(buf, uriValidator) {
             out('"');
           }
         });
-        out(unary ? '/>' : '>');
+        out('>');
       }
     },
     end: function(tag) {
-        tag = angular.lowercase(tag);
-        if (!ignore && validElements[tag] === true) {
-          out('</');
-          out(tag);
-          out('>');
-        }
-        if (tag == ignore) {
-          ignore = false;
-        }
-      },
-    chars: function(chars) {
-        if (!ignore) {
-          out(encodeEntities(chars));
-        }
+      tag = angular.lowercase(tag);
+      if (!ignoreCurrentElement && validElements[tag] === true && voidElements[tag] !== true) {
+        out('</');
+        out(tag);
+        out('>');
       }
+      if (tag == ignoreCurrentElement) {
+        ignoreCurrentElement = false;
+      }
+    },
+    chars: function(chars) {
+      if (!ignoreCurrentElement) {
+        out(encodeEntities(chars));
+      }
+    }
   };
 }
+
+
+/**
+ * When IE9-11 comes across an unknown namespaced attribute e.g. 'xlink:foo' it adds 'xmlns:ns1' attribute to declare
+ * ns1 namespace and prefixes the attribute with 'ns1' (e.g. 'ns1:xlink:foo'). This is undesirable since we don't want
+ * to allow any of these custom attributes. This method strips them all.
+ *
+ * @param node Root element to process
+ */
+function stripCustomNsAttrs(node) {
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    var attrs = node.attributes;
+    for (var i = 0, l = attrs.length; i < l; i++) {
+      var attrNode = attrs[i];
+      var attrName = attrNode.name.toLowerCase();
+      if (attrName === 'xmlns:ns1' || attrName.indexOf('ns1:') === 0) {
+        node.removeAttributeNode(attrNode);
+        i--;
+        l--;
+      }
+    }
+  }
+
+  var nextNode = node.firstChild;
+  if (nextNode) {
+    stripCustomNsAttrs(nextNode);
+  }
+
+  nextNode = node.nextSibling;
+  if (nextNode) {
+    stripCustomNsAttrs(nextNode);
+  }
+}
+
 
 
 // define ngSanitize module and register $sanitize service
@@ -2972,14 +3501,25 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
  * @kind function
  *
  * @description
- * Finds links in text input and turns them into html links. Supports http/https/ftp/mailto and
+ * Finds links in text input and turns them into html links. Supports `http/https/ftp/mailto` and
  * plain email address links.
  *
  * Requires the {@link ngSanitize `ngSanitize`} module to be installed.
  *
  * @param {string} text Input text.
- * @param {string} target Window (_blank|_self|_parent|_top) or named frame to open links in.
- * @returns {string} Html-linkified text.
+ * @param {string} target Window (`_blank|_self|_parent|_top`) or named frame to open links in.
+ * @param {object|function(url)} [attributes] Add custom attributes to the link element.
+ *
+ *    Can be one of:
+ *
+ *    - `object`: A map of attributes
+ *    - `function`: Takes the url as a parameter and returns a map of attributes
+ *
+ *    If the map of attributes contains a value for `target`, it overrides the value of
+ *    the target parameter.
+ *
+ *
+ * @returns {string} Html-linkified and {@link $sanitize sanitized} text.
  *
  * @usage
    <span ng-bind-html="linky_expression | linky"></span>
@@ -2987,25 +3527,13 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
  * @example
    <example module="linkyExample" deps="angular-sanitize.js">
      <file name="index.html">
-       <script>
-         angular.module('linkyExample', ['ngSanitize'])
-           .controller('ExampleController', ['$scope', function($scope) {
-             $scope.snippet =
-               'Pretty text with some links:\n'+
-               'http://angularjs.org/,\n'+
-               'mailto:us@somewhere.org,\n'+
-               'another@somewhere.org,\n'+
-               'and one more: ftp://127.0.0.1/.';
-             $scope.snippetWithTarget = 'http://angularjs.org/';
-           }]);
-       </script>
        <div ng-controller="ExampleController">
        Snippet: <textarea ng-model="snippet" cols="60" rows="3"></textarea>
        <table>
          <tr>
-           <td>Filter</td>
-           <td>Source</td>
-           <td>Rendered</td>
+           <th>Filter</th>
+           <th>Source</th>
+           <th>Rendered</th>
          </tr>
          <tr id="linky-filter">
            <td>linky filter</td>
@@ -3019,10 +3547,19 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
          <tr id="linky-target">
           <td>linky target</td>
           <td>
-            <pre>&lt;div ng-bind-html="snippetWithTarget | linky:'_blank'"&gt;<br>&lt;/div&gt;</pre>
+            <pre>&lt;div ng-bind-html="snippetWithSingleURL | linky:'_blank'"&gt;<br>&lt;/div&gt;</pre>
           </td>
           <td>
-            <div ng-bind-html="snippetWithTarget | linky:'_blank'"></div>
+            <div ng-bind-html="snippetWithSingleURL | linky:'_blank'"></div>
+          </td>
+         </tr>
+         <tr id="linky-custom-attributes">
+          <td>linky custom attributes</td>
+          <td>
+            <pre>&lt;div ng-bind-html="snippetWithSingleURL | linky:'_self':{rel: 'nofollow'}"&gt;<br>&lt;/div&gt;</pre>
+          </td>
+          <td>
+            <div ng-bind-html="snippetWithSingleURL | linky:'_self':{rel: 'nofollow'}"></div>
           </td>
          </tr>
          <tr id="escaped-html">
@@ -3031,6 +3568,18 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
            <td><div ng-bind="snippet"></div></td>
          </tr>
        </table>
+     </file>
+     <file name="script.js">
+       angular.module('linkyExample', ['ngSanitize'])
+         .controller('ExampleController', ['$scope', function($scope) {
+           $scope.snippet =
+             'Pretty text with some links:\n'+
+             'http://angularjs.org/,\n'+
+             'mailto:us@somewhere.org,\n'+
+             'another@somewhere.org,\n'+
+             'and one more: ftp://127.0.0.1/.';
+           $scope.snippetWithSingleURL = 'http://angularjs.org/';
+         }]);
      </file>
      <file name="protractor.js" type="protractor">
        it('should linkify the snippet with urls', function() {
@@ -3059,20 +3608,32 @@ angular.module('ngSanitize', []).provider('$sanitize', $SanitizeProvider);
 
        it('should work with the target property', function() {
         expect(element(by.id('linky-target')).
-            element(by.binding("snippetWithTarget | linky:'_blank'")).getText()).
+            element(by.binding("snippetWithSingleURL | linky:'_blank'")).getText()).
             toBe('http://angularjs.org/');
         expect(element(by.css('#linky-target a')).getAttribute('target')).toEqual('_blank');
+       });
+
+       it('should optionally add custom attributes', function() {
+        expect(element(by.id('linky-custom-attributes')).
+            element(by.binding("snippetWithSingleURL | linky:'_self':{rel: 'nofollow'}")).getText()).
+            toBe('http://angularjs.org/');
+        expect(element(by.css('#linky-custom-attributes a')).getAttribute('rel')).toEqual('nofollow');
        });
      </file>
    </example>
  */
 angular.module('ngSanitize').filter('linky', ['$sanitize', function($sanitize) {
   var LINKY_URL_REGEXP =
-        /((ftp|https?):\/\/|(www\.)|(mailto:)?[A-Za-z0-9._%+-]+@)\S*[^\s.;,(){}<>"”’]/i,
+        /((ftp|https?):\/\/|(www\.)|(mailto:)?[A-Za-z0-9._%+-]+@)\S*[^\s.;,(){}<>"\u201d\u2019]/i,
       MAILTO_REGEXP = /^mailto:/i;
 
-  return function(text, target) {
-    if (!text) return text;
+  var linkyMinErr = angular.$$minErr('linky');
+  var isString = angular.isString;
+
+  return function(text, target, attributes) {
+    if (text == null || text === '') return text;
+    if (!isString(text)) throw linkyMinErr('notstring', 'Expected string but received: {0}', text);
+
     var match;
     var raw = text;
     var html = [];
@@ -3101,8 +3662,19 @@ angular.module('ngSanitize').filter('linky', ['$sanitize', function($sanitize) {
     }
 
     function addLink(url, text) {
+      var key;
       html.push('<a ');
-      if (angular.isDefined(target)) {
+      if (angular.isFunction(attributes)) {
+        attributes = attributes(url);
+      }
+      if (angular.isObject(attributes)) {
+        for (key in attributes) {
+          html.push(key + '="' + attributes[key] + '" ');
+        }
+      } else {
+        attributes = {};
+      }
+      if (angular.isDefined(target) && !('target' in attributes)) {
         html.push('target="',
                   target,
                   '" ');
@@ -3193,19 +3765,19 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
   README = "https://github.com/tardyp/guanlecoja-ui/blob/master/Readme.md";
 
   m.config(function($stateProvider, glMenuServiceProvider, $urlRouterProvider) {
-    var group, groups, i, item, j, state, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _results;
+    var group, groups, i, item, j, k, l, len, len1, len2, n, ref, ref1, results, state;
     $urlRouterProvider.otherwise('/bugcab');
     groups = [];
-    _ref = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      i = _ref[_i];
+    ref = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
+    for (k = 0, len = ref.length; k < len; k++) {
+      i = ref[k];
       group = {
         name: i,
         items: []
       };
-      _ref1 = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
-      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-        j = _ref1[_j];
+      ref1 = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
+      for (l = 0, len1 = ref1.length; l < len1; l++) {
+        j = ref1[l];
         group.items.push({
           name: i + j
         });
@@ -3216,7 +3788,7 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
       groups.push(group);
       glMenuServiceProvider.addGroup({
         name: group.name,
-        caption: _.string.humanize(group.name),
+        caption: _.capitalize(group.name),
         icon: group.name,
         order: group.name.length
       });
@@ -3234,15 +3806,15 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
       }
     ]);
     glMenuServiceProvider.setAppTitle("Guanlecoja-UI");
-    _results = [];
-    for (_k = 0, _len2 = groups.length; _k < _len2; _k++) {
-      group = groups[_k];
-      _results.push((function() {
-        var _l, _len3, _ref2, _results1;
-        _ref2 = group.items;
-        _results1 = [];
-        for (_l = 0, _len3 = _ref2.length; _l < _len3; _l++) {
-          item = _ref2[_l];
+    results = [];
+    for (n = 0, len2 = groups.length; n < len2; n++) {
+      group = groups[n];
+      results.push((function() {
+        var len3, o, ref2, results1;
+        ref2 = group.items;
+        results1 = [];
+        for (o = 0, len3 = ref2.length; o < len3; o++) {
+          item = ref2[o];
           state = {
             controller: "dummyController",
             template: "<div class='container'><div btf-markdown ng-include=\"'Readme.md'\"> </div></div>",
@@ -3250,15 +3822,15 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
             url: '/' + item.name,
             data: {
               group: group.name,
-              caption: _.string.humanize(item.name)
+              caption: _.capitalize(item.name)
             }
           };
-          _results1.push($stateProvider.state(state));
+          results1.push($stateProvider.state(state));
         }
-        return _results1;
+        return results1;
       })());
     }
-    return _results;
+    return results;
   });
 
   m.controller("dummyController", function($scope, $state, glBreadcrumbService, glNotificationService, glTopbarContextualActionsService) {
@@ -3292,9 +3864,9 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
     });
     return glBreadcrumbService.setBreadcrumb([
       {
-        caption: _.string.humanize($state.current.data.group)
+        caption: _.capitalize($state.current.data.group)
       }, {
-        caption: _.string.humanize($state.current.name),
+        caption: _.capitalize($state.current.name),
         sref: $state.current.name
       }
     ]);
@@ -3356,20 +3928,20 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
 (function() {
   describe('menuService', function() {
     beforeEach(module("guanlecoja.ui", function($stateProvider, glMenuServiceProvider) {
-      var group, groups, i, item, j, state, stateProvider, _glMenuServiceProvider, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2;
+      var _glMenuServiceProvider, group, groups, i, item, j, k, l, len, len1, len2, len3, m, n, ref, ref1, ref2, state, stateProvider;
       _glMenuServiceProvider = glMenuServiceProvider;
       stateProvider = $stateProvider;
       groups = [];
-      _ref = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        i = _ref[_i];
+      ref = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
+      for (k = 0, len = ref.length; k < len; k++) {
+        i = ref[k];
         group = {
           name: i,
           items: []
         };
-        _ref1 = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
-        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-          j = _ref1[_j];
+        ref1 = ["cab", "camera", "bug", "calendar", "ban", "archive", "edit"];
+        for (l = 0, len1 = ref1.length; l < len1; l++) {
+          j = ref1[l];
           group.items.push({
             name: i + j
           });
@@ -3385,7 +3957,7 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
         } else {
           glMenuServiceProvider.addGroup({
             name: group.name,
-            caption: _.string.humanize(group.name),
+            caption: _.capitalize(group.name),
             icon: group.name,
             order: i === "edit" ? void 0 : group.name.length
           });
@@ -3398,17 +3970,17 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
         }
       ]);
       glMenuServiceProvider.setAppTitle("Guanlecoja-UI");
-      for (_k = 0, _len2 = groups.length; _k < _len2; _k++) {
-        group = groups[_k];
-        _ref2 = group.items;
-        for (_l = 0, _len3 = _ref2.length; _l < _len3; _l++) {
-          item = _ref2[_l];
+      for (m = 0, len2 = groups.length; m < len2; m++) {
+        group = groups[m];
+        ref2 = group.items;
+        for (n = 0, len3 = ref2.length; n < len3; n++) {
+          item = ref2[n];
           state = {
             name: item.name,
             url: '/' + item.name,
             data: {
               group: item.name === "banedit" ? void 0 : group.name,
-              caption: item.name === "editedit" ? void 0 : _.string.humanize(item.name)
+              caption: item.name === "editedit" ? void 0 : _.capitalize(item.name)
             }
           };
           $stateProvider.state(state);
@@ -3417,11 +3989,11 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
       return null;
     }));
     it('should generate the menu correctly', inject(function(glMenuService) {
-      var g, groups, namedGroups, _i, _len;
+      var g, groups, k, len, namedGroups;
       groups = glMenuService.getGroups();
       namedGroups = {};
-      for (_i = 0, _len = groups.length; _i < _len; _i++) {
-        g = groups[_i];
+      for (k = 0, len = groups.length; k < len; k++) {
+        g = groups[k];
         namedGroups[g.name] = g;
       }
       expect(groups.length).toEqual(7);
@@ -3456,11 +4028,11 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
         return null;
       });
       return inject(function(glMenuService) {
-        var g, groups, namedGroups, _i, _len;
+        var g, groups, k, len, namedGroups;
         groups = glMenuService.getGroups();
         namedGroups = {};
-        for (_i = 0, _len = groups.length; _i < _len; _i++) {
-          g = groups[_i];
+        for (k = 0, len = groups.length; k < len; k++) {
+          g = groups[k];
           namedGroups[g.name] = g;
         }
         return expect(namedGroups["foo"]).not.toBeDefined();
