@@ -275,6 +275,12 @@ body {
   right: 0px;
   overflow-y: visible;
 }
+.gl-page-with-sidebar > .content .container {
+  width: 100%;
+}
+.gl-page-with-sidebar > .content .container-fluid {
+  width: 100%;
+}
 
 .fa.fa-ringing {
   -webkit-animation-name: 'ring_animation';
