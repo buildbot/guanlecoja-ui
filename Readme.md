@@ -65,6 +65,10 @@ Declare a group in the menu. takes on object with the following attributes:
 * `icon`: Icon name from font-awesome. E.g `bug` will use the `fa-bug` class for the icon
 * `order`: The menu is reordered according to this key. This allows to declare menus in different modules, without caring about the module load order.
 
+#### `glMenuServiceProvider.setDefaultGroup(group)`
+
+Declare a group to be the default group. Can be used directly after the `addGroup(group)` call.
+
 #### `glMenuServiceProvider.setFooter(footer_items)`
 
 Declare the menu footer links. The menu contains up to three footer button, that can be used for arbitrary external links. `footer_items` is a list of objects with following attributes:
@@ -142,6 +146,7 @@ The stored list of notifications.
 
 ## ChangeLog
 
+* 1.6.3: Adds setDefaultGroup(group) to glMenuServiceProvider. This option allows to expand a menu by default
 * 1.6.2: Fix width issues of content which push some content off-screen for certain monitor size
 * 1.6.1: rebuilt with guanlecoja 1.7.2, which populates the BOWERDEPS metadata
 * 1.6.0: Massive upgrade of dependencies:

@@ -22,52 +22,6 @@ body {
   user-select: none;
 }
 
-@media (max-width: 600px) {
-  .notifications .dropdown-menu {
-    position: fixed;
-    top: 50px;
-    height: auto;
-    width: 100%;
-  }
-}
-.notifications .dropdown-menu li > .item {
-  display: block;
-  padding: 3px 20px;
-  clear: both;
-  font-weight: normal;
-  line-height: 14px;
-}
-@media (min-width: 900px) {
-  .notifications .dropdown-menu li > .item {
-    min-width: 800px;
-    max-width: 800px;
-  }
-}
-@media (min-width: 600px) {
-  .notifications .dropdown-menu li > .item {
-    min-width: 500px;
-    max-width: 500px;
-  }
-}
-.notifications .dropdown-menu li > .item .title {
-  font-weight: bold;
-  text-decoration: underline;
-  padding: 8px 5px;
-}
-.notifications .dropdown-menu li > .item .msg {
-  white-space: pre;
-  line-height: 20px;
-}
-.notifications .dropdown-menu li > .item .close {
-  position: relative;
-  top: -2px;
-  right: -10px;
-  color: inherit;
-}
-.notifications.active > .dropdown-menu {
-  display: block;
-}
-
 /* Based on http://ehesp.github.io/Responsive-Dashboard/ by Elliot Hesp */
 .fa-45 {
   transform: rotate(45deg);
@@ -282,6 +236,53 @@ body {
   width: 100%;
 }
 
+@media (max-width: 600px) {
+  .notifications .dropdown-menu {
+    position: fixed;
+    top: 50px;
+    height: auto;
+    width: 100%;
+  }
+}
+.notifications .dropdown-menu li > .item {
+  display: block;
+  padding: 3px 20px;
+  clear: both;
+  font-weight: normal;
+  line-height: 14px;
+}
+@media (min-width: 900px) {
+  .notifications .dropdown-menu li > .item {
+    min-width: 800px;
+    max-width: 800px;
+  }
+}
+@media (min-width: 600px) {
+  .notifications .dropdown-menu li > .item {
+    min-width: 500px;
+    max-width: 500px;
+  }
+}
+.notifications .dropdown-menu li > .item .title {
+  font-weight: bold;
+  text-decoration: underline;
+  padding: 8px 5px;
+}
+.notifications .dropdown-menu li > .item .msg {
+  white-space: pre;
+  line-height: 20px;
+}
+.notifications .dropdown-menu li > .item .close {
+  position: relative;
+  top: -2px;
+  right: -10px;
+  color: inherit;
+}
+.notifications.active > .dropdown-menu {
+  display: block;
+}
+
+
 .fa.fa-ringing {
   -webkit-animation-name: 'ring_animation';
   -webkit-animation-duration: 2000ms;
@@ -404,4 +405,3 @@ body {
   width: 40px;
   background-color: #cccccc;
 }
-
