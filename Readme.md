@@ -146,6 +146,12 @@ The stored list of notifications.
 
 ## ChangeLog
 
+* 1.7.0: Massive upgrade of dependencies:
+    - jquery 2.2 -> 3.2.
+    - Angular 1.5 -> 1.6.
+    - angular-ui-bootstrap 1.3.2->2.5.
+    - angular-ui-router 0.2.13->1.0.4.
+    - Lodash -> 4.17.
 * 1.6.3: Adds setDefaultGroup(group) to glMenuServiceProvider. This option allows to expand a menu by default
 * 1.6.2: Fix width issues of content which push some content off-screen for certain monitor size
 * 1.6.1: rebuilt with guanlecoja 1.7.2, which populates the BOWERDEPS metadata
