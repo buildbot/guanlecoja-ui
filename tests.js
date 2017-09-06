@@ -4172,39 +4172,6 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
 }).call(this);
 
 (function() {
-  describe('notification', function() {
-    var elmBody, injected, scope;
-    beforeEach(module("guanlecoja.ui"));
-    elmBody = scope = null;
-    injected = function($rootScope, $compile) {
-      elmBody = angular.element('<gl-notification></gl-notification>');
-      scope = $rootScope;
-      $compile(elmBody)(scope);
-      return scope.$digest();
-    };
-    beforeEach(inject(injected));
-    it('should load', function() {
-      expect(elmBody).toBeDefined();
-      return expect(elmBody.find("ul").length).toBeGreaterThan(0);
-    });
-    return it('should dismiss pass through', inject(function(glNotificationService) {
-      var called, e;
-      called = false;
-      e = {
-        stopPropagation: function() {
-          return called = true;
-        }
-      };
-      spyOn(glNotificationService, "dismiss").and.returnValue(null);
-      scope.n.dismiss(2, e);
-      expect(glNotificationService.dismiss).toHaveBeenCalledWith(2);
-      return expect(called).toBe(true);
-    }));
-  });
-
-}).call(this);
-
-(function() {
   describe('page with sidebar', function() {
     var elmBody, injected, rootScope, scope;
     beforeEach(module("guanlecoja.ui"));
@@ -4264,6 +4231,39 @@ var Showdown={extensions:{}},forEach=Showdown.forEach=function(a,b){if(typeof a.
       $timeout.flush();
       expect(scope.page.sidebarActive).toBe(false);
       return scope.page.sidebarPinned = false;
+    }));
+  });
+
+}).call(this);
+
+(function() {
+  describe('notification', function() {
+    var elmBody, injected, scope;
+    beforeEach(module("guanlecoja.ui"));
+    elmBody = scope = null;
+    injected = function($rootScope, $compile) {
+      elmBody = angular.element('<gl-notification></gl-notification>');
+      scope = $rootScope;
+      $compile(elmBody)(scope);
+      return scope.$digest();
+    };
+    beforeEach(inject(injected));
+    it('should load', function() {
+      expect(elmBody).toBeDefined();
+      return expect(elmBody.find("ul").length).toBeGreaterThan(0);
+    });
+    return it('should dismiss pass through', inject(function(glNotificationService) {
+      var called, e;
+      called = false;
+      e = {
+        stopPropagation: function() {
+          return called = true;
+        }
+      };
+      spyOn(glNotificationService, "dismiss").and.returnValue(null);
+      scope.n.dismiss(2, e);
+      expect(glNotificationService.dismiss).toHaveBeenCalledWith(2);
+      return expect(called).toBe(true);
     }));
   });
 

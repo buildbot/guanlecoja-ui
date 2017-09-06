@@ -146,7 +146,7 @@ The stored list of notifications.
 
 ## ChangeLog
 
-* 1.7.1: topbar is now responsive. It will collapse on mobile.
+* 1.7.2: topbar is now responsive. It will collapse on mobile.
 * 1.6.3: Adds setDefaultGroup(group) to glMenuServiceProvider. This option allows to expand a menu by default
 * 1.6.2: Fix width issues of content which push some content off-screen for certain monitor size
 * 1.6.1: rebuilt with guanlecoja 1.7.2, which populates the BOWERDEPS metadata
