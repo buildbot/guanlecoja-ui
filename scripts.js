@@ -1,468 +1,432 @@
-(function() {
-  angular.module("guanlecoja.ui", ["ui.bootstrap", "ui.router", "ngAnimate"]);
+angular.module("guanlecoja.ui", ["ui.bootstrap", "ui.router", "ngAnimate"]);
 
-}).call(this);
+/*
+ * decaffeinate suggestions:
+ * DS102: Remove unnecessary code created because of implicit returns
+ * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
+ */
+// a simple service to abstract breadcrumb configuration
+class glBreadcrumb {
+    constructor($rootScope) { this.$rootScope = $rootScope; ({}); }
 
-(function() {
-  var glBreadcrumb;
+    setBreadcrumb(breadcrumb) {
+        return this.$rootScope.$broadcast("glBreadcrumb", breadcrumb);
+    }
+}
 
-  glBreadcrumb = (function() {
-    function glBreadcrumb($rootScope) {
-      this.$rootScope = $rootScope;
-      ({});
+
+
+angular.module('guanlecoja.ui')
+.service('glBreadcrumbService', ['$rootScope', glBreadcrumb]);
+
+/*
+ * decaffeinate suggestions:
+ * DS101: Remove unnecessary use of Array.from
+ * DS102: Remove unnecessary code created because of implicit returns
+ * DS206: Consider reworking classes to avoid initClass
+ * DS207: Consider shorter variations of null checks
+ * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
+ */
+class GlMenu {
+    static initClass() {
+
+        this.prototype.appTitle = "set AppTitle using GlMenuServiceProvider.setAppTitle";
+
+        this.prototype.$get = ["$state", function($state) {
+            let group;
+            for (let state of Array.from($state.get().slice(1))) {
+                ({ group } = state.data);
+                if (group == null) {
+                    continue;
+                }
+
+                if (!this.groups.hasOwnProperty(group)) {
+                    throw Error(`group ${group} has not been defined with glMenuProvider.group(). has: ${_.keys(this.groups)}`);
+                }
+
+                this.groups[group].items.push({
+                    caption: state.data.caption || _.capitalize(state.name),
+                    sref: state.name
+                });
+            }
+
+            for (let name in this.groups) {
+                // if a group has only no item, we juste delete it
+                group = this.groups[name];
+                if ((group.items.length === 0) && !group.separator) {
+                    delete this.groups[name];
+                // if a group has only one item, then we put the group == the item
+                } else if (group.items.length === 1) {
+                    const item = group.items[0];
+                    group.caption = item.caption;
+                    group.sref = item.sref;
+                    group.items = [];
+                } else {
+                    group.sref = ".";
+                }
+            }
+            const groups = _.values(this.groups);
+            groups.sort((a,b) => a.order - b.order);
+            const self = this;
+            return {
+                getGroups() { return groups; },
+                getDefaultGroup() { return self.defaultGroup; },
+                getFooter() { return self.footer; },
+                getAppTitle() { return self.appTitle; }
+            };
+        }
+        ];
+    }
+    constructor() {
+        this.groups = {};
+        this.defaultGroup = null;
+        this.footer = [];
     }
 
-    glBreadcrumb.prototype.setBreadcrumb = function(breadcrumb) {
-      return this.$rootScope.$broadcast("glBreadcrumb", breadcrumb);
-    };
-
-    return glBreadcrumb;
-
-  })();
-
-  angular.module('guanlecoja.ui').service('glBreadcrumbService', ['$rootScope', glBreadcrumb]);
-
-}).call(this);
-
-(function() {
-  var GlMenu;
-
-  GlMenu = (function() {
-    function GlMenu() {
-      this.groups = {};
-      this.defaultGroup = null;
-      this.footer = [];
+    addGroup(group) {
+        group.items = [];
+        if (group.order == null) { group.order = 99; }
+        this.groups[group.name] = group;
+        return this.groups;
     }
 
-    GlMenu.prototype.appTitle = "set AppTitle using GlMenuServiceProvider.setAppTitle";
+    setDefaultGroup(group) {
+        return this.defaultGroup = group;
+    }
 
-    GlMenu.prototype.addGroup = function(group) {
-      group.items = [];
-      if (group.order == null) {
-        group.order = 99;
-      }
-      this.groups[group.name] = group;
-      return this.groups;
-    };
+    setFooter(footer) {
+        return this.footer = footer;
+    }
 
-    GlMenu.prototype.setDefaultGroup = function(group) {
-      return this.defaultGroup = group;
-    };
+    setAppTitle(title) {
+        return this.appTitle = title;
+    }
+}
+GlMenu.initClass();
 
-    GlMenu.prototype.setFooter = function(footer) {
-      return this.footer = footer;
-    };
 
-    GlMenu.prototype.setAppTitle = function(title) {
-      return this.appTitle = title;
-    };
+angular.module('guanlecoja.ui')
+.provider('glMenuService', [GlMenu]);
 
-    GlMenu.prototype.$get = [
-      "$state", function($state) {
-        var group, groups, i, item, len, name, ref, ref1, self, state;
-        ref = $state.get().slice(1);
-        for (i = 0, len = ref.length; i < len; i++) {
-          state = ref[i];
-          group = state.data.group;
-          if (group == null) {
-            continue;
-          }
-          if (!this.groups.hasOwnProperty(group)) {
-            throw Error("group " + group + " has not been defined with glMenuProvider.group(). has: " + (_.keys(this.groups)));
-          }
-          this.groups[group].items.push({
-            caption: state.data.caption || _.capitalize(state.name),
-            sref: state.name
-          });
+/*
+ * decaffeinate suggestions:
+ * DS102: Remove unnecessary code created because of implicit returns
+ * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
+ */
+// I intercept the http errors and put them in the notification service
+// in order to enable it, please add following code in you config:
+
+//class AddInterceptor extends Config
+//    constructor: ($httpProvider) ->
+//        $httpProvider.responseInterceptors.push('glHttpInterceptor')
+
+
+class glHttpInterceptor {
+    constructor(glNotificationService, $q, $timeout) {
+        return function(promise) {
+            const errorHandler =  function(res) {
+                let msg;
+                try {
+                    msg = `${res.status}:${res.data.error} ` +
+                    `when:${res.config.method} ${res.config.url}`;
+                } catch (e) {
+                    msg = res.toString();
+                }
+                $timeout((() => glNotificationService.network(msg)), 100);
+                return $q.reject(res);
+            };
+
+            return promise.then(angular.identity, errorHandler);
+        };
+    }
+}
+
+
+angular.module('guanlecoja.ui')
+.factory('glHttpInterceptor', ['glNotificationService', '$q', '$timeout', glHttpInterceptor]);
+
+/*
+ * decaffeinate suggestions:
+ * DS102: Remove unnecessary code created because of implicit returns
+ * DS207: Consider shorter variations of null checks
+ * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
+ */
+class glNotification {
+    constructor($rootScope, $timeout) {
+        this.$rootScope = $rootScope;
+        this.$timeout = $timeout;
+        this.notifications = [];
+        this.curid = 0;
+        null;
+    }
+
+    notify(opts) {
+        this.curid += 1;
+        if (opts.title == null) { opts.title = "Info"; }
+        opts.id = this.curid;
+        let id = this.curid;
+        if (opts.group != null) {
+            for (let i in this.notifications) {
+                const n = this.notifications[i];
+                if (opts.group === n.group) {
+                    id = i;
+                    n.msg += `\n${opts.msg}`;
+                }
+            }
         }
-        ref1 = this.groups;
-        for (name in ref1) {
-          group = ref1[name];
-          if (group.items.length === 0 && !group.separator) {
-            delete this.groups[name];
-          } else if (group.items.length === 1) {
-            item = group.items[0];
-            group.caption = item.caption;
-            group.sref = item.sref;
-            group.items = [];
-          } else {
-            group.sref = ".";
-          }
+        if (id === this.curid) {
+            this.notifications.push(opts);
         }
-        groups = _.values(this.groups);
-        groups.sort(function(a, b) {
-          return a.order - b.order;
-        });
-        self = this;
+        return null;
+    }
+
+    // some shortcuts...
+    error(opts) {
+        if (opts.title == null) { opts.title = "Error"; }
+        return this.notify(opts);
+    }
+
+    network(opts) {
+        if (opts.title == null) { opts.title = "Network issue"; }
+        if (opts.group == null) { opts.group = "Network"; }
+        return this.notify(opts);
+    }
+
+    dismiss(id) {
+        for (let i in this.notifications) {
+            const n = this.notifications[i];
+            if (n.id === id) {
+                this.notifications.splice(i, 1);
+                return null;
+            }
+        }
+        return null;
+    }
+}
+
+
+angular.module('guanlecoja.ui')
+.service('glNotificationService', ['$rootScope', '$timeout', glNotification]);
+
+/*
+ * decaffeinate suggestions:
+ * DS102: Remove unnecessary code created because of implicit returns
+ * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
+ */
+class GlNotification {
+    constructor() {
         return {
-          getGroups: function() {
-            return groups;
-          },
-          getDefaultGroup: function() {
-            return self.defaultGroup;
-          },
-          getFooter: function() {
-            return self.footer;
-          },
-          getAppTitle: function() {
-            return self.appTitle;
-          }
+            replace: true,
+            transclude: true,
+            restrict: 'E',
+            scope: false,
+            controllerAs: "n",
+            templateUrl: "guanlecoja.ui/views/notification.html",
+            controller: "_glNotificationController"
         };
-      }
-    ];
+    }
+}
 
-    return GlMenu;
+class _glNotification {
 
-  })();
+    constructor($scope, glNotificationService) {
+        this.$scope = $scope;
+        this.glNotificationService = glNotificationService;
+        this.notifications = this.glNotificationService.notifications;
+        null;
+    }
 
-  angular.module('guanlecoja.ui').provider('glMenuService', [GlMenu]);
+    dismiss(id, e) {
+        this.glNotificationService.dismiss(id);
+        e.stopPropagation();
+        return null;
+    }
+}
 
-}).call(this);
 
-(function() {
-  var glHttpInterceptor;
-
-  glHttpInterceptor = (function() {
-    function glHttpInterceptor(glNotificationService, $q, $timeout) {
-      return function(promise) {
-        var errorHandler;
-        errorHandler = function(res) {
-          var e, error, msg;
-          try {
-            msg = (res.status + ":" + res.data.error + " ") + ("when:" + res.config.method + " " + res.config.url);
-          } catch (error) {
-            e = error;
-            msg = res.toString();
-          }
-          $timeout((function() {
-            return glNotificationService.network(msg);
-          }), 100);
-          return $q.reject(res);
+angular.module('guanlecoja.ui')
+.directive('glNotification', [GlNotification])
+.controller('_glNotificationController', ['$scope', 'glNotificationService', _glNotification]);
+/*
+ * decaffeinate suggestions:
+ * DS102: Remove unnecessary code created because of implicit returns
+ * DS207: Consider shorter variations of null checks
+ * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
+ */
+class GlPageWithSidebar {
+    constructor() {
+        return {
+            replace: true,
+            transclude: true,
+            restrict: 'E',
+            scope: false,
+            controllerAs: "page",
+            templateUrl: "guanlecoja.ui/views/page_with_sidebar.html",
+            controller: "_glPageWithSidebarController"
         };
-        return promise.then(angular.identity, errorHandler);
-      };
     }
+}
 
-    return glHttpInterceptor;
+class _glPageWithSidebar {
+    constructor($scope, glMenuService, $timeout, $window) {
 
-  })();
-
-  angular.module('guanlecoja.ui').factory('glHttpInterceptor', ['glNotificationService', '$q', '$timeout', glHttpInterceptor]);
-
-}).call(this);
-
-(function() {
-  var glNotification;
-
-  glNotification = (function() {
-    function glNotification($rootScope, $timeout) {
-      this.$rootScope = $rootScope;
-      this.$timeout = $timeout;
-      this.notifications = [];
-      this.curid = 0;
-      null;
-    }
-
-    glNotification.prototype.notify = function(opts) {
-      var i, id, n, ref;
-      this.curid += 1;
-      if (opts.title == null) {
-        opts.title = "Info";
-      }
-      opts.id = this.curid;
-      id = this.curid;
-      if (opts.group != null) {
-        ref = this.notifications;
-        for (i in ref) {
-          n = ref[i];
-          if (opts.group === n.group) {
-            id = i;
-            n.msg += "\n" + opts.msg;
-          }
+        // by default, pin sidebar only if window is wide enough (collapse by default if narrow)
+        this.$scope = $scope;
+        this.$timeout = $timeout;
+        this.$window = $window;
+        this.sidebarPinned = this.$window.innerWidth > 800;
+        // If user has previously pinned or unpinned the sidebar, use the saved value from localStorage
+        const sidebarWasPinned = this.$window.localStorage.sidebarPinned;
+        if ( (sidebarWasPinned === "true") || (sidebarWasPinned === "false") ) { // note -- localstorage only stores strings,  converts bools to string.
+            this.sidebarPinned = sidebarWasPinned !== "false";
         }
-      }
-      if (id === this.curid) {
-        this.notifications.push(opts);
-      }
-      return null;
-    };
 
-    glNotification.prototype.error = function(opts) {
-      if (opts.title == null) {
-        opts.title = "Error";
-      }
-      return this.notify(opts);
-    };
+        this.groups = glMenuService.getGroups();
+        this.footer = glMenuService.getFooter();
+        this.appTitle = glMenuService.getAppTitle();
+        this.activeGroup = glMenuService.getDefaultGroup();
+        this.inSidebar = false;
+        this.sidebarActive = this.sidebarPinned;
+    }
 
-    glNotification.prototype.network = function(opts) {
-      if (opts.title == null) {
-        opts.title = "Network issue";
-      }
-      if (opts.group == null) {
-        opts.group = "Network";
-      }
-      return this.notify(opts);
-    };
+    toggleSidebarPinned() {
+        this.sidebarPinned=!this.sidebarPinned;
+        return this.$window.localStorage.sidebarPinned = this.sidebarPinned;
+    }
 
-    glNotification.prototype.dismiss = function(id) {
-      var i, n, ref;
-      ref = this.notifications;
-      for (i in ref) {
-        n = ref[i];
-        if (n.id === id) {
-          this.notifications.splice(i, 1);
-          return null;
+    toggleGroup(group) {
+        if (this.activeGroup!==group) {
+            return this.activeGroup=group;
+        } else {
+            return this.activeGroup=null;
         }
-      }
-      return null;
-    };
-
-    return glNotification;
-
-  })();
-
-  angular.module('guanlecoja.ui').service('glNotificationService', ['$rootScope', '$timeout', glNotification]);
-
-}).call(this);
-
-(function() {
-  var GlNotification, _glNotification;
-
-  GlNotification = (function() {
-    function GlNotification() {
-      return {
-        replace: true,
-        transclude: true,
-        restrict: 'E',
-        scope: false,
-        controllerAs: "n",
-        templateUrl: "guanlecoja.ui/views/notification.html",
-        controller: "_glNotificationController"
-      };
     }
 
-    return GlNotification;
-
-  })();
-
-  _glNotification = (function() {
-    function _glNotification($scope, glNotificationService) {
-      this.$scope = $scope;
-      this.glNotificationService = glNotificationService;
-      this.notifications = this.glNotificationService.notifications;
-      null;
+    enterSidebar() {
+        return this.inSidebar = true;
     }
 
-    _glNotification.prototype.dismiss = function(id, e) {
-      this.glNotificationService.dismiss(id);
-      e.stopPropagation();
-      return null;
-    };
-
-    return _glNotification;
-
-  })();
-
-  angular.module('guanlecoja.ui').directive('glNotification', [GlNotification]).controller('_glNotificationController', ['$scope', 'glNotificationService', _glNotification]);
-
-}).call(this);
-
-(function() {
-  var GlPageWithSidebar, _glPageWithSidebar;
-
-  GlPageWithSidebar = (function() {
-    function GlPageWithSidebar() {
-      return {
-        replace: true,
-        transclude: true,
-        restrict: 'E',
-        scope: false,
-        controllerAs: "page",
-        templateUrl: "guanlecoja.ui/views/page_with_sidebar.html",
-        controller: "_glPageWithSidebarController"
-      };
+    hideSidebar() {
+        this.sidebarActive = false;
+        return this.inSidebar = false;
     }
 
-    return GlPageWithSidebar;
-
-  })();
-
-  _glPageWithSidebar = (function() {
-    function _glPageWithSidebar($scope, glMenuService, $timeout, $window) {
-      var sidebarWasPinned;
-      this.$scope = $scope;
-      this.$timeout = $timeout;
-      this.$window = $window;
-      this.sidebarPinned = this.$window.innerWidth > 800;
-      sidebarWasPinned = this.$window.localStorage.sidebarPinned;
-      if (sidebarWasPinned === "true" || sidebarWasPinned === "false") {
-        this.sidebarPinned = sidebarWasPinned !== "false";
-      }
-      this.groups = glMenuService.getGroups();
-      this.footer = glMenuService.getFooter();
-      this.appTitle = glMenuService.getAppTitle();
-      this.activeGroup = glMenuService.getDefaultGroup();
-      this.inSidebar = false;
-      this.sidebarActive = this.sidebarPinned;
+    leaveSidebar() {
+        this.inSidebar = false;
+        if (this.timeout != null) {
+            this.$timeout.cancel(this.timeout);
+            this.timeout = undefined;
+        }
+        return this.timeout = this.$timeout((() => {
+            if (!this.inSidebar && !this.sidebarPinned) {
+                this.sidebarActive = false;
+                return this.activeGroup = null;
+            }
+        }
+            ), 500);
     }
+}
 
-    _glPageWithSidebar.prototype.toggleSidebarPinned = function() {
-      this.sidebarPinned = !this.sidebarPinned;
-      return this.$window.localStorage.sidebarPinned = this.sidebarPinned;
-    };
 
-    _glPageWithSidebar.prototype.toggleGroup = function(group) {
-      if (this.activeGroup !== group) {
-        return this.activeGroup = group;
-      } else {
-        return this.activeGroup = null;
-      }
-    };
-
-    _glPageWithSidebar.prototype.enterSidebar = function() {
-      return this.inSidebar = true;
-    };
-
-    _glPageWithSidebar.prototype.hideSidebar = function() {
-      this.sidebarActive = false;
-      return this.inSidebar = false;
-    };
-
-    _glPageWithSidebar.prototype.leaveSidebar = function() {
-      this.inSidebar = false;
-      if (this.timeout != null) {
-        this.$timeout.cancel(this.timeout);
-        this.timeout = void 0;
-      }
-      return this.timeout = this.$timeout(((function(_this) {
-        return function() {
-          if (!(_this.inSidebar || _this.sidebarPinned)) {
-            _this.sidebarActive = false;
-            return _this.activeGroup = null;
-          }
+angular.module('guanlecoja.ui')
+.directive('glPageWithSidebar', [GlPageWithSidebar])
+.controller('_glPageWithSidebarController', ['$scope', 'glMenuService', '$timeout', '$window', _glPageWithSidebar]);
+/*
+ * decaffeinate suggestions:
+ * DS102: Remove unnecessary code created because of implicit returns
+ * DS207: Consider shorter variations of null checks
+ * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
+ */
+class GlTopbar {
+    constructor() {
+        return {
+            replace: true,
+            transclude: true,
+            restrict: 'E',
+            scope: false,
+            controllerAs: "page",
+            templateUrl: "guanlecoja.ui/views/topbar.html",
+            controller: "_glTopbarController"
         };
-      })(this)), 500);
-    };
-
-    return _glPageWithSidebar;
-
-  })();
-
-  angular.module('guanlecoja.ui').directive('glPageWithSidebar', [GlPageWithSidebar]).controller('_glPageWithSidebarController', ['$scope', 'glMenuService', '$timeout', '$window', _glPageWithSidebar]);
-
-}).call(this);
-
-(function() {
-  var GlTopbar, _glTopbar;
-
-  GlTopbar = (function() {
-    function GlTopbar() {
-      return {
-        replace: true,
-        transclude: true,
-        restrict: 'E',
-        scope: false,
-        controllerAs: "page",
-        templateUrl: "guanlecoja.ui/views/topbar.html",
-        controller: "_glTopbarController"
-      };
     }
+}
 
-    return GlTopbar;
+class _glTopbar {
+    constructor($scope, glMenuService, $location) {
+        let groups = glMenuService.getGroups();
+        groups = _.zipObject(_.map(groups, g => g.name), groups);
+        $scope.appTitle = glMenuService.getAppTitle();
 
-  })();
-
-  _glTopbar = (function() {
-    function _glTopbar($scope, glMenuService, $location) {
-      var groups;
-      groups = glMenuService.getGroups();
-      groups = _.zipObject(_.map(groups, function(g) {
-        return g.name;
-      }), groups);
-      $scope.appTitle = glMenuService.getAppTitle();
-      $scope.$on("$stateChangeStart", function(ev, state) {
-        var ref, ref1, ref2;
-        $scope.breadcrumb = [];
-        if (((ref = state.data) != null ? ref.group : void 0) && ((ref1 = state.data) != null ? ref1.caption : void 0) !== groups[state.data.group].caption) {
-          $scope.breadcrumb.push({
-            caption: groups[state.data.group].caption
-          });
-        }
-        return $scope.breadcrumb.push({
-          caption: ((ref2 = state.data) != null ? ref2.caption : void 0) || _.capitalize(state.name),
-          href: '#' + $location.hash()
+        $scope.$on("$stateChangeStart", function(ev, state) {
+            $scope.breadcrumb = [];
+            if ((state.data != null ? state.data.group : undefined) && ((state.data != null ? state.data.caption : undefined) !== groups[state.data.group].caption)) {
+                $scope.breadcrumb.push({
+                    caption: groups[state.data.group].caption});
+            }
+            return $scope.breadcrumb.push({
+                caption: (state.data != null ? state.data.caption : undefined) || _.capitalize(state.name),
+                href: `#${$location.hash()}`
+            });
         });
-      });
-      $scope.$on("glBreadcrumb", function(e, data) {
-        return $scope.breadcrumb = data;
-      });
+
+        $scope.$on("glBreadcrumb", (e, data) => $scope.breadcrumb = data);
     }
+}
 
-    return _glTopbar;
 
-  })();
+angular.module('guanlecoja.ui')
+.directive('glTopbar', [GlTopbar])
+.controller('_glTopbarController', ['$scope', 'glMenuService', '$location', _glTopbar]);
 
-  angular.module('guanlecoja.ui').directive('glTopbar', [GlTopbar]).controller('_glTopbarController', ['$scope', 'glMenuService', '$location', _glTopbar]);
-
-}).call(this);
-
-(function() {
-  var GlTopbarContextualActions, _glTopbarContextualActions, glTopbarContextualActions;
-
-  GlTopbarContextualActions = (function() {
-    function GlTopbarContextualActions() {
-      return {
-        replace: true,
-        restrict: 'E',
-        scope: true,
-        templateUrl: "guanlecoja.ui/views/topbar-contextual-actions.html",
-        controller: "_glTopbarContextualActionsController"
-      };
+/*
+ * decaffeinate suggestions:
+ * DS101: Remove unnecessary use of Array.from
+ * DS102: Remove unnecessary code created because of implicit returns
+ * DS207: Consider shorter variations of null checks
+ * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
+ */
+class GlTopbarContextualActions {
+    constructor() {
+        return {
+            replace: true,
+            restrict: 'E',
+            scope: true,
+            templateUrl: "guanlecoja.ui/views/topbar-contextual-actions.html",
+            controller: "_glTopbarContextualActionsController"
+        };
     }
+}
 
-    return GlTopbarContextualActions;
 
-  })();
+class _glTopbarContextualActions {
+    constructor($scope, $sce) {
 
-  _glTopbarContextualActions = (function() {
-    function _glTopbarContextualActions($scope, $sce) {
-      $scope.$on("$stateChangeStart", function(ev, state) {
-        return $scope.actions = [];
-      });
-      $scope.$on("glSetContextualActions", function(e, data) {
-        var i, item, len;
-        for (i = 0, len = data.length; i < len; i++) {
-          item = data[i];
-          if (item.extra_class == null) {
-            item.extra_class = "";
-          }
-        }
-        return $scope.actions = data;
-      });
+        $scope.$on("$stateChangeStart", (ev, state) => $scope.actions = []);
+
+        $scope.$on("glSetContextualActions", function(e, data) {
+            for (let item of Array.from(data)) {
+                if (item.extra_class == null) { item.extra_class = ""; }
+            }
+
+            return $scope.actions = data;
+        });
     }
+}
 
-    return _glTopbarContextualActions;
+// a simple service to abstract TopbarContextualActions configuration
+class glTopbarContextualActions {
+    constructor($rootScope) { this.$rootScope = $rootScope; ({}); }
 
-  })();
-
-  glTopbarContextualActions = (function() {
-    function glTopbarContextualActions($rootScope) {
-      this.$rootScope = $rootScope;
-      ({});
+    setContextualActions(actions) {
+        return this.$rootScope.$broadcast("glSetContextualActions", actions);
     }
+}
 
-    glTopbarContextualActions.prototype.setContextualActions = function(actions) {
-      return this.$rootScope.$broadcast("glSetContextualActions", actions);
-    };
 
-    return glTopbarContextualActions;
-
-  })();
-
-  angular.module('guanlecoja.ui').directive('glTopbarContextualActions', [GlTopbarContextualActions]).controller('_glTopbarContextualActionsController', ['$scope', '$sce', _glTopbarContextualActions]).service('glTopbarContextualActionsService', ['$rootScope', glTopbarContextualActions]);
-
-}).call(this);
-
+angular.module('guanlecoja.ui')
+.directive('glTopbarContextualActions', [GlTopbarContextualActions])
+.controller('_glTopbarContextualActionsController', ['$scope', '$sce', _glTopbarContextualActions])
+.service('glTopbarContextualActionsService', ['$rootScope', glTopbarContextualActions]);
 angular.module("guanlecoja.ui").run(["$templateCache", function($templateCache) {$templateCache.put("guanlecoja.ui/views/notification.html","<li class=\"dropdown notifications\" uib-dropdown=\"uib-dropdown\"><a uib-dropdown-toggle=\"uib-dropdown-toggle\"><i class=\"fa fa-bell-o fa-lg\" ng-class=\"{\'fa-ringing\': n.notifications.length &gt; 0 }\"></i></a><ul class=\"uib-dropdown-menu dropdown-menu dropdown-menu-right\" dropdown-toggle=\"dropdown-toggle\"><li class=\"dropdown-header\">Notifications</li><li class=\"divider\"></li><div ng-repeat=\"msg in n.notifications\"><li><div class=\"item\"><button class=\"close\" ng-click=\"n.dismiss(msg.id, $event)\">&times;</button><div class=\"title\">{{msg.title}}:</div><div class=\"msg\">{{msg.msg}}</div></div></li><li class=\"divider\"></li></div><li ng-hide=\"n.notifications.length&gt;0\"><div class=\"item\"><small class=\"msg\"> all caught up!</small></div></li></ul></li>");
 $templateCache.put("guanlecoja.ui/views/page_with_sidebar.html","<div class=\"gl-page-with-sidebar\" ng-class=\"{\'active\': page.sidebarActive, \'pinned\': page.sidebarPinned}\"><div class=\"sidebar sidebar-blue\" ng-mouseenter=\"page.enterSidebar()\" ng-mouseleave=\"page.leaveSidebar()\" ng-click=\"page.sidebarActive=true\"><ul><li class=\"sidebar-main\"><a href=\"javascript:\">{{page.appTitle}}<span class=\"menu-icon fa fa-bars\" ng-hide=\"page.sidebarActive\" ng-click=\"page.sidebarActive=!page.sidebarActive\"></span><span class=\"menu-icon fa fa-thumb-tack\" ng-show=\"page.sidebarActive\" ng-click=\"page.toggleSidebarPinned()\" ng-class=\"{\'fa-45\': !page.sidebarPinned}\"></span></a></li><li class=\"sidebar-title\"><span>NAVIGATION</span></li><div ng-repeat=\"group in page.groups\"><div ng-if=\"group.items.length &gt; 0\"><li class=\"sidebar-list\"><a ng-click=\"page.toggleGroup(group)\"><i class=\"fa fa-angle-right\"></i>&nbsp;{{group.caption}}<span class=\"menu-icon fa\" ng-class=\"\'fa-\' + group.icon\"></span></a></li><li class=\"sidebar-list subitem\" ng-class=\"{\'active\': page.activeGroup==group}\" ng-repeat=\"item in group.items\"><a ui-sref=\"{{item.sref}}\" ng-click=\"page.hideSidebar()\">{{item.caption}}</a></li></div><div ng-if=\"group.items.length == 0\"><div ng-if=\"group.separator\"><li class=\"sidebar-title\"><span>{{group.caption}}</span></li></div><div ng-if=\"!group.separator\"><li class=\"sidebar-separator\" ng-if=\"!$first\"></li><li class=\"sidebar-list\"><a ui-sref=\"{{group.sref}}\" ng-click=\"page.toggleGroup(group)\">{{group.caption}}<span class=\"menu-icon fa\" ng-class=\"\'fa-\' + group.icon\"></span></a></li></div></div></div></ul><div class=\"sidebar-footer\"><div class=\"col-xs-4\" ng-repeat=\"item in page.footer\"><a ng-href=\"{{item.href}}\">{{item.caption}}</a></div></div></div><div class=\"content\"><div ng-transclude=\"ng-transclude\"></div></div></div>");
 $templateCache.put("guanlecoja.ui/views/topbar.html","<nav class=\"navbar navbar-default\"><div class=\"container-fluid\"><div class=\"navbar-header\"><button class=\"navbar-toggle collapsed\" type=\"button\" ng-click=\"collapse=!collapse\" ng-init=\"collapse=1\" aria-expanded=\"false\"><span class=\"sr-only\">Toggle navigation</span><span class=\"icon-bar\"></span><span class=\"icon-bar\"></span><span class=\"icon-bar\"></span></button><a class=\"navbar-brand\">{{appTitle}}</a><ol class=\"breadcrumb\"><li ng-repeat=\"b in breadcrumb\"><a ng-if=\"b.sref\" ui-sref=\"{{b.sref}}\">{{b.caption}}</a><a ng-if=\"b.href\" ng-href=\"{{b.href}}\">{{b.caption}}</a><span ng-if=\"b.href == undefined &amp;&amp; b.sref == undefined\" ng-href=\"{{b.href}}\">{{b.caption}}</span></li></ol></div><div class=\"navbar-collapse collapse pull-right\" ng-class=\"{&quot;in&quot;: !collapse}\"><ul class=\"nav navbar-nav\" ng-transclude=\"ng-transclude\"></ul></div></div></nav>");

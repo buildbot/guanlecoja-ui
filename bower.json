@@ -1,6 +1,6 @@
 {
   "name": "guanlecoja-ui",
-  "version": "1.8.0",
+  "version": "2.0.0",
   "main": [
     "scripts.js",
     "styles.css",
